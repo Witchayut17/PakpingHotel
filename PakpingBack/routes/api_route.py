@@ -1,0 +1,20 @@
+from fastapi import APIRouter
+from controllers import api_control
+
+router = APIRouter()
+router.add_api_route("/received_n8n", endpoint=api_control.received_n8n, methods=["POST"], response_model=dict)
+router.add_api_route("/check_input", endpoint=api_control.check_input, methods=["POST"], response_model=dict)
+router.add_api_route("/reply_available", endpoint=api_control.reply_available, methods=["POST"], response_model=dict)
+router.add_api_route("/post_booking", endpoint=api_control.post_booking, methods=["POST"], response_model=dict)
+router.add_api_route("/post_slip", endpoint=api_control.post_slip, methods=["POST"], response_model=dict)
+router.add_api_route("/cancel_booking", endpoint=api_control.cancel_booking, methods=["POST"], response_model=dict)
+router.add_api_route("/list_room", endpoint=api_control.list_rooms, methods=["GET"], response_model=dict)
+router.add_api_route("/room_statuses", endpoint=api_control.list_room_statuses, methods=["GET"], response_model=dict)
+router.add_api_route("/room_availability", endpoint=api_control.room_availability, methods=["GET"], response_model=dict)
+router.add_api_route("/list_user_payments", endpoint=api_control.list_user_payments, methods=["GET"], response_model=dict)
+router.add_api_route("/list_user_paid", endpoint=api_control.list_user_paid, methods=["GET"], response_model=dict)
+router.add_api_route("/list_reservations", endpoint=api_control.list_reservations, methods=["GET"], response_model=dict)
+router.add_api_route("/reservation_room_action", endpoint=api_control.reservation_room_action, methods=["POST"], response_model=dict)
+router.add_api_route("/booking_slip", endpoint=api_control.get_booking_slip, methods=["GET"], response_model=dict)
+router.add_api_route("/update_user_status", endpoint=api_control.update_user_status, methods=["POST"], response_model=dict)
+router.add_api_route("/reply_approval", endpoint=api_control.reply_approval, methods=["POST"], response_model=dict)

@@ -1,0 +1,8 @@
+{
+  "name": "pakping-dashboard-vanilla",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "client": "python -m http.server --directory . 5500"
+  }
+}

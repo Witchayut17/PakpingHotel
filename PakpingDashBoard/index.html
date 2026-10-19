@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#334c40">
+  <meta name="description" content="Pakping hotel management dashboard">
+  <title>Pakping Hotel · Staff Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css?v=5">
+  <link rel="stylesheet" href="./front-theme.css?v=20">
+</head>
+
+<body>
+  <div id="app">
+
+    <div class="app-shell">
+
+      <header id="top" class="dashboard-header">
+        <div class="brand"><span class="brand-mark" aria-hidden="true">p.</span><span>Pakping Hotel</span></div>
+        <div class="dashboard-tabs" role="tablist" aria-label="หน้าจัดการ">
+          <button id="overview-tab" class="dashboard-tab is-active" type="button" role="tab" aria-controls="overview-panel" aria-selected="true" data-tab="overview">Overview</button>
+          <button id="reservation-tab" class="dashboard-tab" type="button" role="tab" aria-controls="reservation-panel" aria-selected="false" tabindex="-1" data-tab="reservation">Reservation</button>
+        </div>
+      </header>
+
+      <div class="main-shell">
+        <main>
+
+          <div class="page-title">
+            <div>
+              <div class="eyebrow">DASHBOARD</div>
+              <h1>สำหรับบุคลากร</h1>
+            </div>
+            <div class="page-actions">
+              <button id="refresh-all" class="button" type="button" data-action="refresh-all" aria-label="รีเฟรชข้อมูลทั้งหมด">รีเฟรช</button>
+            </div>
+          </div>
+
+          <div id="overview-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="overview-tab">
+          <section id="analytics" class="card analytics-card" aria-labelledby="analytics-title">
+            <div class="card-heading analytics-heading">
+              <div>
+                <h2 id="analytics-title">ภาพรวมธุรกิจ</h2>
+              </div>
+              <div class="analytics-ranges" role="group" aria-label="เลือกช่วงเวลา">
+                <button type="button" class="analytics-range" data-analytics-range="all" aria-pressed="false">ทั้งหมด</button>
+                <button type="button" class="analytics-range is-active" data-analytics-range="today" aria-pressed="true">วันนี้</button>
+                <button type="button" class="analytics-range" data-analytics-range="7days" aria-pressed="false">7 วัน</button>
+                <button type="button" class="analytics-range" data-analytics-range="month" aria-pressed="false">เดือนนี้</button>
+                <button type="button" class="analytics-range" data-analytics-range="year" aria-pressed="false">ปีนี้</button>
+                <button type="button" class="analytics-range" data-analytics-range="custom" aria-pressed="false">กำหนดเอง</button>
+              </div>
+            </div>
+            <div id="analytics-custom-dates" class="analytics-custom-dates" hidden>
+              <label>จากวันที่ <input id="analytics-start" type="date"></label>
+              <label>ถึงวันที่ <input id="analytics-end" type="date"></label>
+            </div>
+            <div id="analytics-content" class="analytics-content" aria-live="polite"></div>
+          </section>
+
+          <section id="rooms" class="card reservations-card" aria-labelledby="rooms-title">
+            <div class="card-heading">
+              <div>
+                <h2 id="rooms-title" class="room-summary-title">ห้องทั้งหมด <span id="rooms-total">0</span> ห้อง
+                  <span class="room-summary-stats">Available <span id="rooms-available">0</span> · Busy <span id="rooms-busy">0</span> · Maintenance <span id="rooms-maintenance">0</span></span>
+                </h2>
+                <p>สถานะห้องพักทุกห้อง</p>
+              </div>
+            </div>
+            <div class="room-controls">
+              <details class="status-filter room-status-filter">
+                <summary id="room-filter-label">สถานะ: ทั้งหมด</summary>
+                <div class="status-filter-options">
+                  <label><input type="checkbox" data-room-filter="all" checked> ทั้งหมด</label>
+                  <label><input type="checkbox" data-room-filter="Available" checked> Available</label>
+                  <label><input type="checkbox" data-room-filter="Busy" checked> Busy</label>
+                  <label><input type="checkbox" data-room-filter="Maintenance" checked> Maintenance</label>
+                  <label><input type="checkbox" data-room-filter="Booked" checked> Booked</label>
+                </div>
+              </details>
+              <label class="search-field" for="room-search"><span class="sr-only">ค้นหาห้อง</span>
+                <input id="room-search" type="search" placeholder="ค้นหาเลขห้อง ชื่อห้อง หรือผู้เข้าพัก" autocomplete="off">
+              </label>
+            </div>
+            <div id="room-status-content"></div>
+          </section>
+          </div>
+
+          <div id="reservation-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="reservation-tab" hidden>
+          <section id="pending" class="card reservations-card" aria-labelledby="pending-title">
+            <div class="card-heading">
+              <div><h2 id="pending-title">Reservation ทั้งหมด</h2><p>รายการชำระเงินทั้งหมดที่ยังอยู่ในระบบ</p></div>
+            </div>
+            <div class="reservation-controls">
+              <button id="sort-reservations" class="button small" type="button" data-action="sort-reservations">วันเข้า: ใหม่ก่อน</button>
+              <details class="status-filter">
+                <summary id="status-filter-label">สถานะ: ทั้งหมด</summary>
+                <div class="status-filter-options">
+                  <label><input type="checkbox" data-status-filter="all" checked> ทั้งหมด</label>
+                  <label><input type="checkbox" data-status-filter="pending" checked> ยังไม่จ่าย</label>
+                  <label><input type="checkbox" data-status-filter="paid" checked> รอตรวจสอบ</label>
+                  <label><input type="checkbox" data-status-filter="ready" checked> อนุมัติแล้ว</label>
+                  <label><input type="checkbox" data-status-filter="inhouse" checked> กำลังเข้าพัก</label>
+                  <label><input type="checkbox" data-status-filter="decline" checked> ปฏิเสธแล้ว</label>
+                  <label><input type="checkbox" data-status-filter="expired" checked> หมดอายุ</label>
+                  <label><input type="checkbox" data-status-filter="cancel" checked> ยกเลิกแล้ว</label>
+                  <label><input type="checkbox" data-status-filter="missing" checked> ไม่เข้าพัก</label>
+                  <label><input type="checkbox" data-status-filter="success" checked> เช็คเอาต์แล้ว</label>
+                </div>
+              </details>
+              <label class="search-field" for="reservation-search"><span class="sr-only">ค้นหา Reservation ทั้งหมด</span>
+                <input id="reservation-search" type="search" placeholder="ค้นหาชื่อ ห้อง หรือรหัสการจอง" autocomplete="off">
+              </label>
+            </div>
+            <div id="pending-content"></div>
+            <div class="table-footer"><span id="pending-count">0 รายการ</span></div>
+          </section>
+
+          <section id="history" class="card reservations-card" aria-labelledby="history-title">
+            <div class="card-heading">
+              <div><h2 id="history-title">Reservation ที่อนุมัติแล้ว</h2><p>รายการ ready และ inhouse สำหรับเช็คอินและเช็คเอาต์</p></div>
+            </div>
+            <div class="reservation-controls">
+              <button id="sort-approved-status" class="button small" type="button" data-action="sort-approved-status">สถานะ: อนุมัติแล้วก่อน</button>
+              <label class="search-field" for="approved-search"><span class="sr-only">ค้นหา Reservation ที่อนุมัติแล้ว</span>
+                <input id="approved-search" type="search" placeholder="ค้นหาชื่อ ห้อง หรือรหัสการจอง" autocomplete="off">
+              </label>
+            </div>
+            <div id="history-content"></div>
+            <div class="table-footer"><span id="history-count">แสดง 0 จาก 0 รายการ</span></div>
+          </section>
+          </div>
+
+        </main>
+      </div>
+
+      <div id="modal-root"></div>
+      <div id="toast-root"></div>
+    </div>
+
+  </div>
+  <script type="module" src="./app.js?v=31"></script>
+</body>
+
+</html>
