@@ -1,0 +1,211 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#334c40">
+    <meta name="description"
+        content="Find your place to unwind at Pakping. Explore our rooms, discover the details, and make yourself at home.">
+    <title>Pakping Hotel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Noto+Sans+Thai:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=12">
+    <script async id="liff-sdk" src="https://static.line-scdn.net/liff/edge/versions/2.31.1/sdk.js"></script>
+    <script defer src="app.js?v=4"></script>
+    <script defer src="booking.js?v=9"></script>
+    <script defer src="payments.js?v=14"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Sans+Thai:wght@100;200;300;400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <header class="header">
+        <a href="#" class="brand" aria-label="Pakping Hotel home"><span class="brand-mark"
+                aria-hidden="true">p.</span><span>Pakping Hotel</span></a>
+        <nav aria-label="Main navigation"><a class="nav-link" href="#rooms">ดูห้อง</a><a class="nav-link"
+                href="#moments">รายการของฉัน</a></nav>
+        <div class="account">
+            <span id="lineProfile" hidden><img id="lineImage" alt="" hidden> <span id="lineName"></span></span>
+            <button id="login" class="button button-outline" disabled>กำลังเชื่อมต่อไลน์</button>
+            <button id="logout" class="text-button" hidden>ออกจากระบบ</button>
+        </div>
+    </header>
+
+    <main>
+
+        <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow">ยินดีต้อนรับสู่ง Pakping Hotel</p>
+                <h1 id="hero-title">ห้องใหม่<br><em>ประสบการณ์ใหม่</em></h1>
+                <p class="hero-thai" lang="th">พักกาย พักใจ ให้ที่นี่เป็นที่พักพิง</p>
+                <p class="hero-description">ทางเราพร้อมบริการอย่างเต็มที่<br>และเป็นส่วนหนึ่งของวันดีๆ</p>
+                <a href="#rooms" class="button button-green">ดูห้องพัก<span aria-hidden="true">↗</span></a>
+            </div>
+
+            <figure class="hero-photo photo-surface">
+                <img src="https://rhhhqzqmctimhwjyvlts.supabase.co/storage/v1/object/public/Rooms/welcome.png"
+                    alt="Pakping suite with a separate living area" fetchpriority="high">
+            </figure>
+
+        </section>
+
+        <div class="welcome-strip"></div>
+
+        <section class="rooms-section section-wrap" id="rooms" aria-labelledby="rooms-title">
+            <div class="section-heading">
+                <div>
+                    <h2 id="rooms-title">รายการ<em>ห้องพัก</em></h2>
+                </div>
+            </div>
+            <div class="room-toolbar" id="room-toolbar">
+                <div id="room-filters" class="filters" role="group" aria-label="Filter by room type"><button
+                        class="filter active" data-type="all" aria-pressed="true">All rooms</button></div><span
+                    id="room-count" class="room-count" aria-live="polite">กำลังโหลด</span>
+            </div>
+            <div id="room-status" class="room-status" role="status"><span class="loading-dot"></span>กำลังโหลดห้อง</div>
+            <button id="retry" class="button button-outline" hidden>ลองอีกครั้ง</button>
+            <div id="room-grid" class="room-grid" aria-busy="true"></div>
+            <nav id="room-pagination" class="room-pagination" aria-label="หน้ารายการห้องพัก" hidden></nav>
+            <p class="availability-note">ราคาจะคิดตามจำนวนคืนที่พัก หากจองหรือมัดจำแล้วมาช้าไม่มีการแจ้งล่วงหน้า
+                ขอสงวนสิทธิ์ไม่คืนเงินทุกกรณี</p>
+        </section>
+
+        <div class="welcome-strip"></div>
+
+        <section class="my-payments section-wrap" id="moments" aria-labelledby="moments-title">
+            <div class="my-payments-heading">
+                <div>
+                    <p class="eyebrow">การจองของคุณ</p>
+                    <h2 id="moments-title">ดูรายการของฉัน</h2>
+                </div>
+                <button id="payments-refresh" type="button" class="button button-outline">รีเฟรชรายการ</button>
+            </div>
+            <p id="payments-status" class="payments-notice" role="status" aria-live="polite">เข้าสู่ระบบ LINE
+                เพื่อดูรายการของคุณ</p>
+            <div class="payments-table-wrap" id="payments-table-wrap" hidden>
+                <table class="payments-table" aria-label="รายการจองและสถานะชำระเงิน">
+                    <thead>
+                        <tr>
+                            <th scope="col">ห้อง</th>
+                            <th scope="col">จ่ายแล้ว / ยอดเต็ม</th>
+                            <th scope="col">เข้าพัก</th>
+                            <th scope="col">สถานะ</th>
+                            <th scope="col">ดำเนินการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payments-list" aria-busy="false"></tbody>
+                </table>
+            </div>
+            <nav id="payments-pagination" class="payments-pagination" aria-label="หน้ารายการของฉัน" hidden></nav>
+        </section>
+
+    </main>
+
+    <div class="welcome-strip"></div>
+
+    <footer><a href="#" class="brand footer-brand"><span class="brand-mark"
+                aria-hidden="true">p.</span><span>PAKPING<small>HOTEL &amp; STAY</small></span></a><span>© <span
+                id="year"></span> Pakping Hotel</span>
+    </footer>
+
+    <p id="account-status" class="toast" role="status" hidden></p>
+
+    <dialog id="room-dialog" aria-labelledby="detail-name"><button class="dialog-close" data-close
+            aria-label="Close room details">×</button>
+        <div class="detail-photo photo-surface"><img id="detail-image" alt=""></div>
+        <div class="detail-copy">
+            <p id="detail-type" class="eyebrow"></p>
+            <h2 id="detail-name"></h2>
+            <p id="detail-description" lang="th"></p>
+            <div class="detail-bottom">
+                <p><strong id="detail-price"></strong>/ Night</p><span id="detail-number" class="room-number"></span>
+            </div>
+            <p class="detail-note">โปรดใช้เวลาเลือกตามสบาย เราจะทำการบันทึกข้อมูลตอนที่คุณยืนยันการเลือกวันเข้าพัก/ออก
+            </p><button class="button button-green" id="open-booking">จองห้องนี้<span
+                    aria-hidden="true">↗</span></button>
+        </div>
+    </dialog>
+
+    <dialog id="booking-dialog" aria-labelledby="booking-title">
+        <button class="dialog-close" data-close aria-label="ปิดฟอร์มจอง">×</button>
+        <h2 id="booking-title">จองห้องพัก</h2>
+        <p class="booking-hint" id="booking-intro">เลือกวันเข้าพักและวันออก</p>
+
+        <form id="booking-form" class="booking-form">
+            <label>ชื่อผู้เข้าพัก<input name="user_name" id="booking-name" required autocomplete="name"
+                    maxlength="50"></label>
+
+            <label>เบอร์โทรศัพท์<input type="tel" name="user_phone" id="booking-phone" required autocomplete="tel"
+                    inputmode="numeric" pattern="[0-9]{10}" maxlength="10" title="กรอกเบอร์โทรศัพท์ 10 หลัก"></label>
+
+            <label class="booking-wide">หมายเลขห้อง<input name="room_number" id="booking-room" readonly
+                    required></label>
+
+            <label>วันเข้าพัก (check-in)<input name="check_in" id="booking-check-in" placeholder="เลือกวันที่" readonly
+                    aria-controls="booking-calendar" aria-expanded="false"></label>
+
+            <label>วันออก (check-out)<input name="check_out" id="booking-check-out" placeholder="เลือกวันที่" readonly
+                    aria-controls="booking-calendar" aria-expanded="false"></label>
+
+            <section id="booking-calendar" class="booking-calendar booking-wide" aria-label="เลือกวันเข้าพัก" hidden>
+                <div class="calendar-header">
+                    <button type="button" id="calendar-prev" aria-label="เดือนก่อนหน้า">‹</button>
+                    <strong id="calendar-month" aria-live="polite"></strong>
+                    <button type="button" id="calendar-next" aria-label="เดือนถัดไป">›</button>
+                </div>
+                <div class="calendar-weekdays" aria-hidden="true">
+                    <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
+                </div>
+                <div id="calendar-days" class="calendar-days"></div>
+            </section>
+
+            <p class="booking-hint booking-wide">เข้าพักได้ในวัน check-out ของผู้เข้าพักก่อนหน้า และต้องพักอย่างน้อย
+                1 คืน</p>
+
+            <fieldset class="booking-payment booking-wide">
+                <legend>การชำระเงิน</legend>
+                <label><input type="checkbox" name="action" value="full_payment" checked>จ่ายเต็มจำนวน</label>
+                <label><input type="checkbox" name="action" value="partial_deposit">มัดจำ 30%</label>
+            </fieldset>
+
+            <p id="booking-status" class="booking-wide" role="status" aria-live="polite"></p>
+            <button type="button" id="booking-retry" class="button button-outline booking-wide"
+                hidden>โหลดวันว่างอีกครั้ง</button>
+            <button type="submit" id="booking-submit" class="button button-green booking-wide"
+                disabled>ยืนยันการจอง</button>
+        </form>
+
+        <section id="booking-qr" class="booking-qr" aria-labelledby="booking-qr-title" hidden>
+            <h3 id="booking-qr-title" tabindex="-1">สแกน QR เพื่อชำระเงิน</h3>
+            <p id="booking-qr-status" role="status"></p>
+            <p id="booking-qr-amount" class="booking-qr-amount"></p>
+            <img id="booking-qr-image" alt="QR Code สำหรับชำระค่าจองห้องพัก" width="300" height="300">
+            <p id="booking-qr-error" class="booking-hint" role="status" hidden>โหลดรูป QR ไม่สำเร็จ กรุณากดเปิดรูป QR
+            </p>
+            <p id="booking-qr-expiry" class="booking-hint"></p>
+            <a id="booking-qr-link" class="button button-outline" target="_blank" rel="noopener noreferrer">เปิดรูป
+                QR</a>
+            <form id="booking-slip-form" class="booking-slip-form">
+                <label for="booking-slip-image">แนบสลิปหลังชำระเงิน</label>
+                <input id="booking-slip-image" type="file" accept="image/jpeg,image/png,image/webp" required>
+                <button id="booking-slip-submit" type="submit" class="button button-green">ส่งสลิป</button>
+                <p id="booking-slip-status" role="status" aria-live="polite"></p>
+            </form>
+        </section>
+    </dialog>
+
+    <noscript>
+        <p class="room-status">เปิด JS ก่อนนะจ๊ะ</p>
+    </noscript>
+
+</body>
+
+</html>
