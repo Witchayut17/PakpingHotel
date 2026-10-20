@@ -6,6 +6,9 @@ class ReplyAvailablePayload(BaseModel):
     replyToken: str
     date: str | None = None
 
+class ReplyMaintenancePayload(BaseModel):
+    replyToken: str
+
 class BookingRequest(BaseModel):
     user_name: constr(strip_whitespace=True, min_length=1, max_length=200)
     user_phone: constr(strip_whitespace=True, pattern=r"^[0-9]{10}$")
@@ -46,3 +49,11 @@ class UserReply(BaseModel):
     booking_id: constr(strip_whitespace=True, min_length=1)
     status: str
     description : str | None = None
+
+class WorkerData(BaseModel):
+    userId: str
+    worker_name: str
+
+class RoomStatus(BaseModel):
+    room_number: str
+    status: str

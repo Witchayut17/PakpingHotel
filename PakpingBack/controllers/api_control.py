@@ -1,12 +1,11 @@
-import httpx
 import logging
 from starlette.concurrency import run_in_threadpool
 from fastapi import Body, HTTPException, Query
 from repository import api_repo
-from models.api_model import ReplyAvailablePayload, BookingRequest, SlipRequest, CancelBookingRequest, UpdateUserStatusRequest, ReservationRoomActionRequest, UserReply
+from models.api_model import ReplyAvailablePayload, BookingRequest, SlipRequest, CancelBookingRequest, UpdateUserStatusRequest, ReservationRoomActionRequest, UserReply, WorkerData, ReplyMaintenancePayload, RoomStatus
 from storge.db import get_db
-from services.reply_flexroom import reply_available_rooms, send_approval_message
-from repository.api_repo import create_booking, make_qr_url
+from services.reply_flexroom import reply_available_rooms, send_approval_message, reply_maintenance_rooms
+from repository.api_repo import create_booking, make_qr_url, worker_data_input, set_room_status
 from services.n8n_event import process_n8n_event
 from datetime import datetime, timezone
 
@@ -115,3 +114,44 @@ async def update_user_status(payload: UpdateUserStatusRequest):
 
 async def reply_approval(payload: UserReply):
     return await send_approval_message(payload.userId, payload.booking_id, payload.status, payload.description)
+
+async def worker_reply(payload: dict = Body(...)) -> dict:
+    try:
+        userId = payload.get("userId")
+        if not isinstance(userId, str) or not userId.strip():
+            raise HTTPException(status_code=422, detail="userId is required")
+
+        def find_worker():
+            return (db.table("Worker").select("line_user_id")
+                    .eq("line_user_id", userId).limit(1).execute().data or [])
+
+        rows = await run_in_threadpool(find_worker)
+        if not rows:
+            await worker_data_input(userId)
+            payload["haveId"] = "0"
+        else:
+            await reply_maintenance_rooms(payload)
+            payload["haveId"] = "1"
+        return payload
+    except HTTPException:
+        raise
+    except Exception as ex:
+        logger.exception("Unable to check worker %s", payload.get("userId"))
+        raise HTTPException(status_code=500, detail="Unable to check worker") from ex
+
+async def worker_insert(payload: WorkerData):
+    return await run_in_threadpool(api_repo.insert_worker_data, payload.userId, payload.worker_name)
+
+async def reply_maintenance(payload: ReplyMaintenancePayload):
+    try:
+        await reply_maintenance_rooms(payload)
+        return {"status": "Success"}
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
+
+async def set_room_status_by_number(payload: RoomStatus):
+    try:
+        await run_in_threadpool(set_room_status, payload.room_number, payload.status)
+        return {"status": "Success"}
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))

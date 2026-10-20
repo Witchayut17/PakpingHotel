@@ -1,13 +1,15 @@
 import httpx
+import logging
 import requests
 from fastapi import HTTPException
 from storge.db import get_db
-from setting import line_channel_access_token
+from setting import line_channel_access_token, line_channel_access_token_housekeeper
 import asyncio
 from urllib.parse import urlencode
 from datetime import date as date_type, datetime
 
 db = get_db()
+logger = logging.getLogger(__name__)
 
 def create_room_card(Rooms, selected_date=None):
     room_number = Rooms["room_number"]
@@ -57,6 +59,69 @@ def create_room_card(Rooms, selected_date=None):
                         "type": "uri",
                         "label": "ดูเพิ่มเติม",
                         "uri": f"https://liff.line.me/2012069184-52LHZkYs?{urlencode({'room': room_number})}",
+                    },
+                }
+            ],
+        },
+    }
+    if Rooms.get("imageUrl"):
+        card["hero"] = {
+            "type": "image",
+            "url": Rooms["imageUrl"],
+            "size": "full",
+            "aspectRatio": "20:13",
+            "aspectMode": "cover",
+        }
+    return card
+
+def create_room_maintenance_card(Rooms):
+    room_number = Rooms["room_number"]
+
+    card = {
+        "type": "bubble",
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "spacing": "md",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"{Rooms['room_type']}",
+                    "size": "sm",
+                    "color": "#777777",
+                },
+                {
+                    "type": "text",
+                    "text": f"ห้อง {Rooms['room_name']} {Rooms['room_number']}",
+                    "weight": "bold",
+                    "size": "xl",
+                },
+                {
+                    "type": "text",
+                    "text": f"{Rooms['price_per_night']:,.0f} บาท / คืน",
+                    "size": "lg",
+                    "wrap": True,
+                },
+                {
+                    "type": "text",
+                    "text": f"{Rooms['description']}",
+                    "color": "#228B22",
+                    "size": "sm",
+                },
+            ],
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#A3A522",
+                    "action": {
+                        "type": "postback",
+                        "label": "เลือกห้อง",
+                        "data": f"action=cleaned&room={room_number}",
                     },
                 }
             ],
@@ -127,6 +192,44 @@ async def reply_available_rooms(payload):
     response.raise_for_status()
     return {"success": True}
 
+async def reply_maintenance_rooms(payload:str):
+    result = db.table("Rooms").select("*").in_("status", ["Maintenance"]).execute()
+    userId = payload.get("userId")
+    Rooms = result.data
+    Rooms.sort(key=lambda room: (room["room_number"][0].upper(), int(room["room_number"][1:])))
+    if not Rooms:
+        messages = [{
+            "type": "text",
+            "text": "ไม่มีห้องรอทำความสะอาด"
+        }]
+    else:
+        if len(Rooms) > 60:
+            raise ValueError("มีห้องมากกว่า 60 ห้อง แสดงไม่พอ")
+        messages = [{
+            "type": "flex",
+            "altText": f"ห้องรอทำความสะอาด {len(Rooms)} ห้อง",
+            "contents": {
+                "type": "carousel",
+                "contents": [
+                    create_room_maintenance_card(room) for room in Rooms[start:start + 12]
+                ],
+            },
+        } for start in range(0, len(Rooms), 12)]
+    response = await asyncio.to_thread(
+        requests.post,
+        "https://api.line.me/v2/bot/message/push",
+        headers={
+            "Authorization": f"Bearer {line_channel_access_token_housekeeper}",
+        },
+        json={
+            "to": userId,
+            "messages": messages,
+        },
+        timeout=10,
+    )
+    response.raise_for_status()
+    return {"success": True}
+
 async def send_approval_message(userId: str, booking_id: str, status:str, description:str):
     print("userId = ", userId, "booking_id = ",booking_id, "status = ",status, "description = ", description)
     records = (db.table("Customers").select("room_number","check_in").eq("booking_id", booking_id).eq("line_user_id", userId).limit(1).execute().data or [])
@@ -175,6 +278,19 @@ async def send_checkin_alert(userId:str, booking_id: str):
                     "messages": [{"type": "text", "text": f"แจ้งเตือน - วันนี้คุณมีรายการห้องเช็ตอินห้อง {rooms} กรุณาเข้าเช็คอินภายในเวลา 12:00 - 14:00 ครับ"}],
                 },
             )
+        response.raise_for_status()
+    return {"status": "replied"}
+
+async def send_worker_input(userId:str):
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            "https://api.line.me/v2/bot/message/push",
+            headers={"Authorization": f"Bearer {line_channel_access_token_housekeeper}"},
+            json={
+                "to": userId,
+                "messages": [{"type": "text", "text": "แจ้งเตือน - ไม่มีข้อมูลคุณในระบบกรุณากรอก\nชื่อ - นามสกุล\n(ตัวอย่าง นางย้อม ใจดี)"}],
+            },
+        )
         response.raise_for_status()
     return {"status": "replied"}
 

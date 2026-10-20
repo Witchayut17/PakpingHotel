@@ -12,7 +12,7 @@ from storge.db import get_db
 from datetime import datetime, timedelta, timezone, date, time
 from fastapi import HTTPException
 from utils.timestamps import parse_db_timestamp
-from services.reply_flexroom import send_checkin_alert
+from services.reply_flexroom import send_checkin_alert, send_worker_input
 import asyncio
 import logging
 from threading import RLock
@@ -34,6 +34,8 @@ SLIP_FORMATS = {"JPEG": ("jpg", "image/jpeg"), "PNG": ("png", "image/png"), "WEB
 
 DECLINE_RETRY_MINUTES = 15
 
+db = get_db()
+
 def payment_due(full_amount, payment_method):
     full_amount = float(full_amount)
     if not math.isfinite(full_amount) or full_amount <= 0:
@@ -43,8 +45,6 @@ def payment_due(full_amount, payment_method):
     if payment_method == "full_payment":
         return full_amount
     raise HTTPException(status_code=409, detail="Payment method is invalid")
-
-db = get_db()
 
 def cancel_booking(user_id: str, booking_id: str | None = None):
     with booking_lock:
@@ -888,6 +888,21 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
         except Exception:
             logger.exception("Slip saved, but related booking data could not be synchronized for %s", booking_id)
         return {"status": "pending_review", "booking_id": str(booking_id)}
+
+def set_room_status(room_number: str, status: str):
+    room = (db.table("Rooms").update({"status": status}).eq("room_number", room_number).execute())
+    return {"set": room.data}
+
+def insert_worker_data(userId: str, worker_name: str) -> dict:
+    if not userId or not worker_name:
+        raise HTTPException(status_code=422, detail="userId and worker_name are required")
+    result = db.table("Worker").insert({"line_user_id": userId, "worker_name": worker_name}).execute()
+    return {"data": result.data}
+
+async def worker_data_input(userId: str):
+    if not userId:
+        raise HTTPException(status_code=422, detail="userId is required")
+    return await send_worker_input(userId)
 
 async def booking_expiry_worker(stop):
     while not stop.is_set():
