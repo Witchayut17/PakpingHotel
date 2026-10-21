@@ -92,7 +92,7 @@ def create_room_maintenance_card(Rooms):
                 },
                 {
                     "type": "text",
-                    "text": f"ห้อง {Rooms['room_name']} {Rooms['room_number']}",
+                    "text": f"{Rooms['room_number']} ห้อง {Rooms['room_name']}",
                     "weight": "bold",
                     "size": "xl",
                 },
@@ -165,7 +165,7 @@ async def reply_available_rooms(payload):
         }]
     else:
         if len(Rooms) > 60:
-            raise ValueError("มีห้องมากกว่า 60 ห้อง แสดงไม่พอ")
+            raise ValueError("มีห้องมากกว่า 60 ห้อง ไม่สามารถแสดงทั้งหมดได้ครับ")
         messages = [{
             "type": "flex",
             "altText": f"ห้องว่าง {len(Rooms)} ห้อง" + (f"วันที่ {selected_date.strftime('%d/%m/%Y')}" if selected_date else ""),
@@ -204,7 +204,7 @@ async def reply_maintenance_rooms(payload:str):
         }]
     else:
         if len(Rooms) > 60:
-            raise ValueError("มีห้องมากกว่า 60 ห้อง แสดงไม่พอ")
+            raise ValueError("มีห้องมากกว่า 60 ห้อง ไม่สามารถแสดงทั้งหมดได้ครับ")
         messages = [{
             "type": "flex",
             "altText": f"ห้องรอทำความสะอาด {len(Rooms)} ห้อง",
@@ -234,7 +234,7 @@ async def send_approval_message(userId: str, booking_id: str, status:str, descri
     print("userId = ", userId, "booking_id = ",booking_id, "status = ",status, "description = ", description)
     records = (db.table("Customers").select("room_number","check_in").eq("booking_id", booking_id).eq("line_user_id", userId).limit(1).execute().data or [])
     if not records:
-        raise HTTPException(status_code=404, detail="ไม่เจอ booking")
+        raise HTTPException(status_code=404, detail="ไม่พบรายการจองครับ")
     room_number = records[0]["room_number"]
     check_in = records[0]["check_in"]
     try:
@@ -261,9 +261,9 @@ async def send_approval_message(userId: str, booking_id: str, status:str, descri
                 )
                 response.raise_for_status()
     except httpx.HTTPStatusError as error:
-        raise HTTPException(status_code=502, detail="แจ้งเตือนไม่สำเร็จ") from error
+        raise HTTPException(status_code=502, detail="ส่งข้อความแจ้งเตือนไม่สำเร็จครับ") from error
     except httpx.RequestError as error:
-        raise HTTPException(status_code=502, detail="แจ้งเตือนไม่สำเร็จ") from error
+        raise HTTPException(status_code=502, detail="ส่งข้อความแจ้งเตือนไม่สำเร็จครับ") from error
     return {"status": "sent", "booking_id": booking_id}
 
 async def send_checkin_alert(userId:str, booking_id: str):

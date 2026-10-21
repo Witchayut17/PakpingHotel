@@ -15,11 +15,11 @@ async def received_n8n(payload: dict = Body(...)) -> dict:
     if "body" in payload:
         payload = payload["body"]
         if not isinstance(payload, dict):
-            raise HTTPException(status_code=422, detail="body must be a JSON object")
+            raise HTTPException(status_code=422, detail="body ต้องเป็นข้อมูล JSON object ครับ")
     if "events" in payload:
         events = payload["events"]
         if not isinstance(events, list) or any(not isinstance(event, dict) for event in events):
-            raise HTTPException(status_code=422, detail="events must be an array of JSON objects")
+            raise HTTPException(status_code=422, detail="events ต้องเป็นรายการ JSON object ครับ")
         results = []
         for event in events:
             results.append(await process_n8n_event({"destination": payload.get("destination"), **event}))
@@ -47,7 +47,8 @@ async def reply_available(payload: ReplyAvailablePayload):
         await reply_available_rooms(payload)
         return {"status": "Success"}
     except Exception as ex:
-        raise HTTPException(status_code=500, detail=str(ex))
+        logger.exception("Unable to reply with available rooms")
+        raise HTTPException(status_code=500, detail="ไม่สามารถส่งรายการห้องว่างได้ครับ") from ex
 
 async def post_booking(payload: BookingRequest):
     try:
@@ -57,7 +58,7 @@ async def post_booking(payload: BookingRequest):
         logger.exception("Booking failed:name=%s phone=%s userId=%s room=%s check_in=%s check_out=%s action=%s",payload.user_name, payload.user_phone, payload.user_id, payload.room_number, payload.check_in, payload.check_out, payload.action)
         if isinstance(ex, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=str(ex)) from ex
+        raise HTTPException(status_code=500, detail="ไม่สามารถสร้างรายการจองได้ครับ") from ex
     qr_url = make_qr_url(booking)
     return {"booking": booking, "qr_url": qr_url}
 
@@ -79,7 +80,7 @@ async def list_room_statuses():
 
 async def room_availability(room_number: str):
     if not room_number.strip():
-        raise HTTPException(422, "room_number is required")
+        raise HTTPException(422, "กรุณาระบุเลขห้องครับ")
     try:
         ranges = await run_in_threadpool(api_repo.booked_ranges, db, room_number)
         return {"room_number": room_number, "booked_ranges": ranges}
@@ -87,7 +88,7 @@ async def room_availability(room_number: str):
         raise
     except Exception:
         logger.exception("Unable to load room availability")
-        raise HTTPException(503, "ไม่สามารถตรวจสอบวันว่างได้ กรุณาลองอีกครั้ง")
+        raise HTTPException(503, "ไม่สามารถตรวจสอบวันว่างได้ กรุณาลองอีกครั้งครับ")
 
 async def list_user_payments(userId: str = Query(min_length=1)):
     return await run_in_threadpool(api_repo.list_user_payments, userId)
@@ -114,7 +115,7 @@ async def worker_reply(payload: dict = Body(...)) -> dict:
     try:
         userId = payload.get("userId")
         if not isinstance(userId, str) or not userId.strip():
-            raise HTTPException(status_code=422, detail="userId is required")
+            raise HTTPException(status_code=422, detail="กรุณาระบุ userId ครับ")
 
         def find_worker():
             return (db.table("Worker").select("line_user_id")
@@ -132,7 +133,7 @@ async def worker_reply(payload: dict = Body(...)) -> dict:
         raise
     except Exception as ex:
         logger.exception("Unable to check worker %s", payload.get("userId"))
-        raise HTTPException(status_code=500, detail="Unable to check worker") from ex
+        raise HTTPException(status_code=500, detail="ไม่สามารถตรวจสอบข้อมูลพนักงานได้ครับ") from ex
 
 async def worker_insert(payload: WorkerData):
     return await run_in_threadpool(api_repo.insert_worker_data, payload.userId, payload.worker_name)
@@ -142,11 +143,13 @@ async def reply_maintenance(payload: ReplyMaintenancePayload):
         await reply_maintenance_rooms(payload)
         return {"status": "Success"}
     except Exception as ex:
-        raise HTTPException(status_code=500, detail=str(ex))
+        logger.exception("Unable to reply with maintenance rooms")
+        raise HTTPException(status_code=500, detail="ไม่สามารถส่งรายการห้องรอทำความสะอาดได้ครับ") from ex
 
 async def set_room_status_by_number(payload: RoomStatus):
     try:
         await run_in_threadpool(set_room_status, payload.room_number, payload.status)
         return {"status": "Success"}
     except Exception as ex:
-        raise HTTPException(status_code=500, detail=str(ex))
+        logger.exception("Unable to set room status")
+        raise HTTPException(status_code=500, detail="ไม่สามารถเปลี่ยนสถานะห้องได้ครับ") from ex

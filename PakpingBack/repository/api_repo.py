@@ -21,7 +21,7 @@ booking_lock = RLock()
 logger = logging.getLogger(__name__)
 PENDING_BOOKING_DETAIL = {
     "code": "pending_booking_exists",
-    "message": "คุณมีรายการที่ยังไม่เสร็จ กรุณาไปที่รายการของฉันเพื่อชำระเงินและแนบสลิปให้เสร็จก่อนจองใหม่",
+    "message": "คุณมีรายการที่ยังไม่เสร็จ กรุณาไปที่รายการของฉันเพื่อชำระเงินและแนบสลิปให้เสร็จก่อนจองใหม่ครับ",
 }
 
 ROOM_FIELDS = (
@@ -39,12 +39,12 @@ db = get_db()
 def payment_due(full_amount, payment_method):
     full_amount = float(full_amount)
     if not math.isfinite(full_amount) or full_amount <= 0:
-        raise HTTPException(status_code=409, detail="Booking total is invalid")
+        raise HTTPException(status_code=409, detail="ยอดรวมการจองไม่ถูกต้องครับ")
     if payment_method == "partial_deposit":
         return round(full_amount * 0.30)
     if payment_method == "full_payment":
         return full_amount
-    raise HTTPException(status_code=409, detail="Payment method is invalid")
+    raise HTTPException(status_code=409, detail="วิธีชำระเงินไม่ถูกต้องครับ")
 
 def cancel_booking(user_id: str, booking_id: str | None = None):
     with booking_lock:
@@ -91,16 +91,21 @@ def cancel_booking(user_id: str, booking_id: str | None = None):
         result = {"status": "cancelled", "deleted_count": len(deleted),
                   "rooms": rooms, "qr_deleted_count": qr_deleted_count}
         if cleanup_errors:
-            raise HTTPException(status_code=502, detail={**result, "status": "cleanup_failed", "errors": cleanup_errors})
+            raise HTTPException(status_code=502, detail={
+                **result,
+                "status": "cleanup_failed",
+                "message": "ยกเลิกรายการจองแล้ว แต่ลบข้อมูลที่เกี่ยวข้องไม่สำเร็จครับ",
+                "errors": cleanup_errors,
+            })
         return result
 
 def make_qr_url(booking: dict) -> str:
     try:
         amount = float(booking["payment_due"])
     except (KeyError, TypeError, ValueError) as ex:
-        raise HTTPException(status_code=422, detail="Booking amount is invalid") from ex
+        raise HTTPException(status_code=422, detail="ยอดชำระเงินไม่ถูกต้องครับ") from ex
     if not math.isfinite(amount) or amount <= 0:
-        raise HTTPException(status_code=422, detail="Booking amount must be greater than zero")
+        raise HTTPException(status_code=422, detail="ยอดชำระเงินต้องมากกว่าศูนย์ครับ")
 
     payload = pp.generate_payload(PROMPTPAY_ID, amount=amount)
     img = qrcode.make(payload)
@@ -114,7 +119,7 @@ def make_qr_url(booking: dict) -> str:
 def create_booking(user_name:str, user_phone:str, user_id:str, room_number:str, check_in:date, check_out:date, action:str):
     with booking_lock:
         if action not in ("full_payment", "partial_deposit"):
-            raise HTTPException(400, "Invalid payment action")
+            raise HTTPException(400, "วิธีชำระเงินไม่ถูกต้องครับ")
         existing = (db.table("Payments").select("_id")
                     .eq("line_user_id", user_id).eq("status", "pending")
                     .gt("expired_at", datetime.now(timezone.utc).isoformat())
@@ -136,7 +141,7 @@ def create_booking(user_name:str, user_phone:str, user_id:str, room_number:str, 
             logger.exception("Unable to save guest details for room %s", room_number)
             raise HTTPException(502, detail={
                 "booking": booking,
-                "message": "สร้างรายการจองแล้ว แต่บันทึกข้อมูลผู้เข้าพักไม่สำเร็จ กรุณาติดต่อที่พัก ไม่ต้องจองซ้ำ",
+                "message": "สร้างรายการจองแล้ว แต่บันทึกข้อมูลผู้เข้าพักไม่สำเร็จ กรุณาติดต่อที่พักและอย่าจองซ้ำครับ",
             }) from ex
         return booking
 
@@ -148,7 +153,7 @@ def _create_booking(user_id:str, room_number:str, check_in:date, check_out:date,
             nights = (check_out - check_in).days
 
             if not room or nights < 1:
-                raise HTTPException(status_code=400, detail="เลขห้องไม่ถูกต้อง หรือวันเช็คเอาต์ต้องอยู่หลังวันเช็คอิน")
+                raise HTTPException(status_code=400, detail="เลขห้องไม่ถูกต้อง หรือวันเช็คเอาต์ต้องอยู่หลังวันเช็คอินครับ")
             
             now = datetime.now(timezone.utc)
 
@@ -156,7 +161,7 @@ def _create_booking(user_id:str, room_number:str, check_in:date, check_out:date,
 
             for r in rows:
                 if r["status"] == "paid" or r.get("paid_at") is not None or bool(r.get("slip_path")) or parse_db_timestamp(r["expired_at"]) > now:
-                    raise HTTPException(status_code=409, detail="ห้องไม่ว่างในช่วงวันที่เลือก")
+                    raise HTTPException(status_code=409, detail="ห้องไม่ว่างในช่วงวันที่เลือกครับ")
                 
             full_amount = nights * float(room["price_per_night"])
             booking = db.table("Payments").insert({
@@ -179,7 +184,7 @@ def _create_booking(user_id:str, room_number:str, check_in:date, check_out:date,
             nights = (check_out - check_in).days
 
             if not room or nights < 1:
-                raise HTTPException(status_code=400, detail="เลขห้องไม่ถูกต้อง หรือวันเช็คเอาต์ต้องอยู่หลังวันเช็คอิน")
+                raise HTTPException(status_code=400, detail="เลขห้องไม่ถูกต้อง หรือวันเช็คเอาต์ต้องอยู่หลังวันเช็คอินครับ")
             
             now = datetime.now(timezone.utc)
 
@@ -187,7 +192,7 @@ def _create_booking(user_id:str, room_number:str, check_in:date, check_out:date,
 
             for r in rows:
                 if r["status"] == "paid" or r.get("paid_at") is not None or bool(r.get("slip_path")) or parse_db_timestamp(r["expired_at"]) > now:
-                    raise HTTPException(status_code=409, detail="ห้องไม่ว่างในช่วงวันที่เลือก")
+                    raise HTTPException(status_code=409, detail="ห้องไม่ว่างในช่วงวันที่เลือกครับ")
                 
             full_amount = nights * float(room["price_per_night"])
             booking = db.table("Payments").insert({
@@ -211,7 +216,8 @@ def _create_booking(user_id:str, room_number:str, check_in:date, check_out:date,
             error_text = " ".join(str(getattr(ex, field, "") or "") for field in ("message", "details", "hint"))
             if "one_pending_per_user" in error_text.lower():
                 raise HTTPException(status_code=409, detail=PENDING_BOOKING_DETAIL) from ex
-        raise HTTPException(status_code=500, detail=str(ex)) from ex
+        logger.exception("Unable to create payment for booking")
+        raise HTTPException(status_code=500, detail="ไม่สามารถสร้างรายการชำระเงินได้ครับ") from ex
 
 def booked_ranges(db, room_number: str):
     today = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
@@ -250,10 +256,10 @@ def booked_ranges(db, room_number: str):
 def validate_stay(db, room_number, check_in, check_out):
     today = datetime.now(timezone(timedelta(hours=7))).date()
     if check_in < today or check_out <= check_in:
-        raise HTTPException(400, "กรุณาเลือกวันเข้าพักตั้งแต่วันนี้ และวันออกหลังวันเข้าพัก")
+        raise HTTPException(400, "กรุณาเลือกวันเข้าพักตั้งแต่วันนี้ และวันออกหลังวันเข้าพักครับ")
     for stay in booked_ranges(db, room_number):
         if check_in.isoformat() < stay["check_out"] and check_out.isoformat() > stay["check_in"]:
-            raise HTTPException(409, "ห้องไม่ว่างในช่วงวันที่เลือก กรุณาเลือกวันใหม่")
+            raise HTTPException(409, "ห้องไม่ว่างในช่วงวันที่เลือก กรุณาเลือกวันใหม่ครับ")
 
 def sync_booking_statuses():
     with booking_lock:
@@ -372,7 +378,7 @@ def list_rooms():
         )
     except Exception as ex:
         logger.exception("Unable to load public room catalogue")
-        raise HTTPException(status_code=503, detail="Rooms are temporarily unavailable.") from ex
+        raise HTTPException(status_code=503, detail="ไม่สามารถโหลดรายการห้องได้ในขณะนี้ครับ") from ex
 
     rooms = [{field: row.get(field) for field in ROOM_FIELDS} for row in records]
     rooms.sort(key=lambda room: str(room["room_number"]))
@@ -415,7 +421,7 @@ def list_room_statuses() -> dict:
                 offset += len(page)
     except Exception as ex:
         logger.exception("Unable to load room statuses")
-        raise HTTPException(status_code=503, detail="Room statuses are temporarily unavailable") from ex
+        raise HTTPException(status_code=503, detail="ไม่สามารถโหลดสถานะห้องได้ในขณะนี้ครับ") from ex
     for room in rooms:
         customer = occupants.get(str(room["room_number"])) if room["status"] == "Busy" else None
         room["occupant"] = ({
@@ -444,7 +450,7 @@ def list_user_payments(user_id: str) -> dict:
             offset += len(page)
     except Exception as ex:
         logger.exception("Unable to load payments for user")
-        raise HTTPException(status_code=503, detail="Payments are temporarily unavailable") from ex
+        raise HTTPException(status_code=503, detail="ไม่สามารถโหลดรายการชำระเงินได้ในขณะนี้ครับ") from ex
 
     if not rows:
         return {"payments": []}
@@ -465,7 +471,7 @@ def list_user_payments(user_id: str) -> dict:
                 offset += len(page)
         except Exception as ex:
             logger.exception("Unable to load booking review statuses for user")
-            raise HTTPException(status_code=503, detail="Payments are temporarily unavailable") from ex
+            raise HTTPException(status_code=503, detail="ไม่สามารถโหลดรายการชำระเงินได้ในขณะนี้ครับ") from ex
 
     now = datetime.now(timezone.utc)
     payments = []
@@ -520,7 +526,7 @@ def list_user_paid():
         records = (db.table("Customers").select("booking_id,customer_name,room_number,check_in,check_out,status,description,line_user_id").in_("status", ["paid", "ready", "inhouse", "decline", "cancel", "missing"]).execute().data or [])
     except Exception as ex:
         logger.exception("Unable to load paid bookings for review")
-        raise HTTPException(status_code=503, detail="Paid bookings are temporarily unavailable") from ex
+        raise HTTPException(status_code=503, detail="ไม่สามารถโหลดรายการจองที่ชำระเงินแล้วได้ในขณะนี้ครับ") from ex
     return {"records": records}
 
 def list_reservations() -> dict:
@@ -560,7 +566,7 @@ def list_reservations() -> dict:
             offset += len(page)
     except Exception as ex:
         logger.exception("Unable to load reservations")
-        raise HTTPException(status_code=503, detail="ไม่สามารถโหลดข้อมูลได้ในขณะนี้") from ex
+        raise HTTPException(status_code=503, detail="ไม่สามารถโหลดข้อมูลได้ในขณะนี้ครับ") from ex
 
     now = datetime.now(timezone.utc)
     records = []
@@ -605,7 +611,7 @@ def list_reservations() -> dict:
 
 def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed: bool = False) -> dict:
     if action not in ("checkin", "checkout"):
-        raise HTTPException(status_code=422, detail="Invalid room action")
+        raise HTTPException(status_code=422, detail="การดำเนินการกับห้องไม่ถูกต้องครับ")
     with booking_lock:
         client = get_db()
         try:
@@ -613,21 +619,21 @@ def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed
                          .select("booking_id,room_number,check_in,check_out,status,arrive_at,out_at")
                          .eq("booking_id", booking_id).limit(1).execute().data or [])
             if not customers:
-                raise HTTPException(status_code=404, detail="Reservation not found")
+                raise HTTPException(status_code=404, detail="ไม่พบรายการจองครับ")
             customer = customers[0]
             if customer["status"] not in ("ready", "inhouse", "success"):
-                raise HTTPException(status_code=409, detail="Reservation is not approved")
+                raise HTTPException(status_code=409, detail="รายการจองยังไม่ได้รับการอนุมัติครับ")
 
             payments = (client.table("Payments").select("status,payment_method,amount,full_amount")
                         .eq("_id", booking_id).limit(1).execute().data or [])
             if not payments or payments[0]["status"] != "paid":
-                raise HTTPException(status_code=409, detail="Payment is not active")
+                raise HTTPException(status_code=409, detail="รายการชำระเงินยังไม่พร้อมใช้งานครับ")
 
             room_number = customer["room_number"]
             rooms = (client.table("Rooms").select("status")
                      .eq("room_number", room_number).limit(1).execute().data or [])
             if not rooms:
-                raise HTTPException(status_code=404, detail="Room not found")
+                raise HTTPException(status_code=404, detail="ไม่พบห้องพักครับ")
             room_status = rooms[0]["status"]
             today = datetime.now(timezone(timedelta(hours=7))).date()
             check_in = date.fromisoformat(str(customer["check_in"])[:10])
@@ -635,24 +641,24 @@ def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed
 
             if action == "checkin":
                 if customer["status"] != "ready" or customer.get("arrive_at") or not check_in <= today < check_out:
-                    raise HTTPException(status_code=409, detail="Reservation cannot be checked in today")
+                    raise HTTPException(status_code=409, detail="ไม่สามารถเช็คอินวันนี้ได้ครับ")
                 payment = payments[0]
                 full_amount = payment.get("full_amount")
                 if full_amount is None or float(full_amount) <= 0:
-                    raise HTTPException(status_code=409, detail="Booking total is missing")
+                    raise HTTPException(status_code=409, detail="ไม่พบยอดรวมของการจองครับ")
                 method = payment.get("payment_method")
                 if method not in ("full_payment", "partial_deposit"):
-                    raise HTTPException(status_code=409, detail="Payment method is invalid")
+                    raise HTTPException(status_code=409, detail="วิธีชำระเงินไม่ถูกต้องครับ")
                 if float(payment["amount"]) < float(payment_due(full_amount, method)):
-                    raise HTTPException(status_code=409, detail="Initial payment has not been confirmed")
+                    raise HTTPException(status_code=409, detail="ยังไม่ได้ยืนยันยอดชำระเงินครั้งแรกครับ")
                 if method == "partial_deposit" and not balance_paid_confirmed:
-                    raise HTTPException(status_code=409, detail="Confirm remaining balance payment before check-in")
+                    raise HTTPException(status_code=409, detail="กรุณายืนยันการชำระยอดคงเหลือก่อนเช็คอินครับ")
                 if room_status not in ("Available", "Booked", "Maintenance"):
-                    raise HTTPException(status_code=409, detail="Room is already busy")
+                    raise HTTPException(status_code=409, detail="ห้องมีผู้เข้าพักอยู่แล้วครับ")
                 updated = (client.table("Rooms").update({"status": "Busy"})
                            .eq("room_number", room_number).eq("status", room_status).execute().data or [])
                 if not updated:
-                    raise HTTPException(status_code=409, detail="Room status changed; refresh and try again")
+                    raise HTTPException(status_code=409, detail="สถานะห้องเปลี่ยนไป กรุณารีเฟรชแล้วลองอีกครั้งครับ")
                 arrive_at = datetime.now(timezone.utc).isoformat()
                 payment_changed = False
                 try:
@@ -662,13 +668,13 @@ def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed
                                            .eq("amount", payment["amount"])
                                            .eq("full_amount", full_amount).execute().data or [])
                         if not updated_payment:
-                            raise HTTPException(status_code=409, detail="Payment changed; refresh and try again")
+                            raise HTTPException(status_code=409, detail="ข้อมูลการชำระเงินเปลี่ยนไป กรุณารีเฟรชแล้วลองอีกครั้งครับ")
                         payment_changed = True
                     checked_in = (client.table("Customers").update({"status": "inhouse", "arrive_at": arrive_at})
                                   .eq("booking_id", booking_id).eq("status", "ready")
                                   .is_("arrive_at", "null").execute().data or [])
                     if not checked_in:
-                        raise HTTPException(status_code=409, detail="Reservation status changed; refresh and try again")
+                        raise HTTPException(status_code=409, detail="สถานะการจองเปลี่ยนไป กรุณารีเฟรชแล้วลองอีกครั้งครับ")
                 except Exception:
                     if payment_changed:
                         try:
@@ -691,20 +697,20 @@ def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed
                 if room_status == "Maintenance":
                     return {"booking_id": booking_id, "room_number": room_number,
                             "room_status": "Maintenance", "out_at": customer.get("out_at")}
-                raise HTTPException(status_code=409, detail="Reservation is already checked out")
+                raise HTTPException(status_code=409, detail="รายการจองนี้เช็คเอาต์แล้วครับ")
             if room_status != "Busy" or today < check_in or not customer.get("arrive_at") or customer.get("out_at"):
-                raise HTTPException(status_code=409, detail="Room is not checked in")
+                raise HTTPException(status_code=409, detail="ห้องนี้ยังไม่ได้เช็คอินครับ")
             updated = (client.table("Rooms").update({"status": "Maintenance"})
                        .eq("room_number", room_number).eq("status", "Busy").execute().data or [])
             if not updated:
-                raise HTTPException(status_code=409, detail="Room status changed; refresh and try again")
+                raise HTTPException(status_code=409, detail="สถานะห้องเปลี่ยนไป กรุณารีเฟรชแล้วลองอีกครั้งครับ")
             try:
                 out_at = datetime.now(timezone.utc).isoformat()
                 completed = (client.table("Customers").update({"status": "success", "out_at": out_at})
                              .eq("booking_id", booking_id).eq("status", customer["status"])
                              .is_("out_at", "null").execute().data or [])
                 if not completed:
-                    raise HTTPException(status_code=409, detail="Reservation status changed; refresh and try again")
+                    raise HTTPException(status_code=409, detail="สถานะการจองเปลี่ยนไป กรุณารีเฟรชแล้วลองอีกครั้งครับ")
             except Exception:
                 try:
                     (client.table("Rooms").update({"status": "Busy"})
@@ -717,24 +723,24 @@ def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed
             raise
         except Exception as ex:
             logger.exception("Unable to perform %s for booking %s", action, booking_id)
-            raise HTTPException(status_code=503, detail="Unable to update room status") from ex
+            raise HTTPException(status_code=503, detail="ไม่สามารถอัปเดตสถานะห้องได้ครับ") from ex
 
 def get_booking_slip(booking_id: str) -> dict:
     try:
         records = (db.table("Payments").select("slip_path").eq("_id", booking_id).in_("status", ["paid", "cancel"]).limit(1).execute().data or [])
         if not records or not records[0].get("slip_path"):
-            raise HTTPException(status_code=404, detail="Slip not found")
+            raise HTTPException(status_code=404, detail="ไม่พบสลิปครับ")
         signed = db.storage.from_("Slips").create_signed_url(records[0]["slip_path"], 60)
         return {"booking_id": booking_id, "slip_url": signed["signedURL"]}
     except HTTPException:
         raise
     except Exception as ex:
         logger.exception("Unable to load slip for booking %s", booking_id)
-        raise HTTPException(status_code=503, detail="Slip is temporarily unavailable") from ex
+        raise HTTPException(status_code=503, detail="ไม่สามารถเปิดสลิปได้ในขณะนี้ครับ") from ex
 
 def update_user_status(booking_id: str, status: str, description: str | None = None) -> dict:
     if status == "decline" and not (description or "").strip():
-        raise HTTPException(status_code=422, detail="กรุณาระบุเหตุผลที่ปฏิเสธสลิป")
+        raise HTTPException(status_code=422, detail="กรุณาระบุเหตุผลที่ปฏิเสธสลิปครับ")
     reason = description.strip() if status == "decline" else None
     deadline = None
     try:
@@ -742,13 +748,13 @@ def update_user_status(booking_id: str, status: str, description: str | None = N
             awaiting = (db.table("Customers").select("booking_id").eq("booking_id", booking_id)
                         .eq("status", "paid").limit(1).execute().data or [])
             if not awaiting:
-                raise HTTPException(status_code=409, detail="Booking is not awaiting review")
+                raise HTTPException(status_code=409, detail="รายการจองนี้ไม่ได้รอการตรวจสอบครับ")
             if status == "decline":
                 deadline = datetime.now(timezone.utc) + timedelta(minutes=DECLINE_RETRY_MINUTES)
                 payment = (db.table("Payments").update({"expired_at": deadline.isoformat()})
                            .eq("_id", booking_id).eq("status", "paid").execute().data or [])
                 if not payment:
-                    raise HTTPException(status_code=409, detail="Payment is not awaiting review")
+                    raise HTTPException(status_code=409, detail="รายการชำระเงินนี้ไม่ได้รอการตรวจสอบครับ")
             previous_amount = None
             previous_initial_paid_at = None
             approved_amount = None
@@ -757,7 +763,7 @@ def update_user_status(booking_id: str, status: str, description: str | None = N
                                 .select("amount,full_amount,payment_method,initial_paid_at")
                                 .eq("_id", booking_id).eq("status", "paid").limit(1).execute().data or [])
                 if not payment_rows:
-                    raise HTTPException(status_code=409, detail="Payment is not awaiting review")
+                    raise HTTPException(status_code=409, detail="รายการชำระเงินนี้ไม่ได้รอการตรวจสอบครับ")
                 previous_amount = payment_rows[0]["amount"]
                 previous_initial_paid_at = payment_rows[0].get("initial_paid_at")
                 approved_amount = payment_due(payment_rows[0]["full_amount"], payment_rows[0]["payment_method"])
@@ -768,7 +774,7 @@ def update_user_status(booking_id: str, status: str, description: str | None = N
                                    .eq("_id", booking_id).eq("status", "paid")
                                    .eq("amount", previous_amount).execute().data or [])
                 if not updated_payment:
-                    raise HTTPException(status_code=409, detail="Payment changed; refresh and try again")
+                    raise HTTPException(status_code=409, detail="ข้อมูลการชำระเงินเปลี่ยนไป กรุณารีเฟรชแล้วลองอีกครั้งครับ")
             records = []
             try:
                 records = (db.table("Customers").update({"status": status, "description": reason})
@@ -788,9 +794,9 @@ def update_user_status(booking_id: str, status: str, description: str | None = N
         raise
     except Exception as ex:
         logger.exception("Unable to update customer status for booking %s", booking_id)
-        raise HTTPException(status_code=503, detail="Unable to update customer status") from ex
+        raise HTTPException(status_code=503, detail="ไม่สามารถอัปเดตสถานะลูกค้าได้ครับ") from ex
     if not records:
-        raise HTTPException(status_code=409, detail="Booking is not awaiting review")
+        raise HTTPException(status_code=409, detail="รายการจองนี้ไม่ได้รอการตรวจสอบครับ")
     return {"booking_id": booking_id, "status": status, "description": reason,
             "expired_at": deadline.isoformat() if deadline else None}
 
@@ -798,20 +804,20 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
     try:
         encoded = image_data.split(",", 1)[1] if image_data.startswith("data:image/") else image_data
         if len(encoded) > ((MAX_SLIP_BYTES + 2) // 3) * 4:
-            raise HTTPException(422, "Slip image must be 5 MB or less")
+            raise HTTPException(422, "รูปสลิปต้องมีขนาดไม่เกิน 5 MB ครับ")
         image_bytes = base64.b64decode(encoded, validate=True)
     except (IndexError, binascii.Error, ValueError) as ex:
-        raise HTTPException(422, "Invalid slip image") from ex
+        raise HTTPException(422, "รูปสลิปไม่ถูกต้องครับ") from ex
     if not image_bytes or len(image_bytes) > MAX_SLIP_BYTES:
-        raise HTTPException(422, "Slip image must be 5 MB or less")
+        raise HTTPException(422, "รูปสลิปต้องมีขนาดไม่เกิน 5 MB ครับ")
     try:
         with Image.open(io.BytesIO(image_bytes)) as image:
             image.verify()
             image_format = image.format
     except (UnidentifiedImageError, OSError, ValueError) as ex:
-        raise HTTPException(422, "Invalid slip image") from ex
+        raise HTTPException(422, "รูปสลิปไม่ถูกต้องครับ") from ex
     if image_format not in SLIP_FORMATS:
-        raise HTTPException(422, "Slip image must be JPEG, PNG, or WebP")
+        raise HTTPException(422, "รูปสลิปต้องเป็นไฟล์ JPEG, PNG หรือ WebP ครับ")
 
     with booking_lock:
         queried = False
@@ -828,7 +834,7 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
             if rows:
                 break
         else:
-            raise HTTPException(404, "Booking not found")
+            raise HTTPException(404, "ไม่พบรายการจองครับ")
 
         booking = rows[0]
         customer = (db.table("Customers").select("status").eq("booking_id", str(booking_id))
@@ -837,11 +843,11 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
                         and booking.get("status") == "paid" and booking.get("slip_path"))
         now = datetime.now(timezone.utc)
         if is_retry and parse_db_timestamp(booking["expired_at"]) <= now:
-            raise HTTPException(409, "หมดเวลาส่งสลิปใหม่แล้ว")
+            raise HTTPException(409, "หมดเวลาส่งสลิปใหม่แล้วครับ")
         if not is_retry and (booking.get("slip_path") or booking.get("status") == "paid"):
-            raise HTTPException(409, "Slip already submitted")
+            raise HTTPException(409, "ส่งสลิปสำหรับรายการนี้แล้วครับ")
         if not is_retry and (booking.get("status") != "pending" or parse_db_timestamp(booking["expired_at"]) <= now):
-            raise HTTPException(409, "Booking has expired")
+            raise HTTPException(409, "รายการจองหมดอายุแล้วครับ")
 
         extension, content_type = SLIP_FORMATS[image_format]
         slip_path = booking["slip_path"] if is_retry else f"{booking_id}-{uuid.uuid4().hex}.{extension}"
@@ -879,7 +885,7 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
                     slips.remove([slip_path])
                 except Exception:
                     logger.exception("Unable to remove unused slip %s", slip_path)
-            raise HTTPException(409, "Booking has changed or expired")
+            raise HTTPException(409, "รายการจองมีการเปลี่ยนแปลงหรือหมดอายุแล้วครับ")
 
         try:
             (db.table("Customers")
@@ -895,13 +901,13 @@ def set_room_status(room_number: str, status: str):
 
 def insert_worker_data(userId: str, worker_name: str) -> dict:
     if not userId or not worker_name:
-        raise HTTPException(status_code=422, detail="userId and worker_name are required")
+        raise HTTPException(status_code=422, detail="กรุณาระบุ userId และชื่อพนักงานครับ")
     result = db.table("Worker").insert({"line_user_id": userId, "worker_name": worker_name}).execute()
     return {"data": result.data}
 
 async def worker_data_input(userId: str):
     if not userId:
-        raise HTTPException(status_code=422, detail="userId is required")
+        raise HTTPException(status_code=422, detail="กรุณาระบุ userId ครับ")
     return await send_worker_input(userId)
 
 async def booking_expiry_worker(stop):

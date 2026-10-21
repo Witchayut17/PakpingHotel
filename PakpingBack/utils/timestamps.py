@@ -7,4 +7,4 @@ def parse_db_timestamp(value: str) -> datetime:
             return datetime.strptime(normalized, fmt)
         except ValueError:
             pass
-    raise ValueError("Invalid database timestamp")
+    raise ValueError("รูปแบบวันเวลาในฐานข้อมูลไม่ถูกต้องครับ")
