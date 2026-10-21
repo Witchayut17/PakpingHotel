@@ -38,12 +38,6 @@ class ReservationRoomActionRequest(BaseModel):
     action: Literal["checkin", "checkout"]
     balance_paid_confirmed: bool = False
 
-class CustomerData(BaseModel):
-    user_id: str
-    customer_name: str
-    phone_number: constr(pattern=r"^[0-9]{10}$")
-    room_number: str
-
 class UserReply(BaseModel):
     userId: str
     booking_id: constr(strip_whitespace=True, min_length=1)

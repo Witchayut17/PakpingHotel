@@ -6,7 +6,7 @@ from storge.db import get_db
 from setting import line_channel_access_token, line_channel_access_token_housekeeper
 import asyncio
 from urllib.parse import urlencode
-from datetime import date as date_type, datetime
+from datetime import datetime
 
 db = get_db()
 logger = logging.getLogger(__name__)
@@ -294,8 +294,8 @@ async def send_worker_input(userId:str):
         response.raise_for_status()
     return {"status": "replied"}
 
-async def reply(token: str, text: str):
-    async with httpx.AsyncClient() as c:
-        response = await c.post("https://api.line.me/v2/bot/message/reply",headers={"Authorization": f"Bearer {line_channel_access_token}"},json={"replyToken": token,"messages": [{"type": "text", "text": text}]})
-        response.raise_for_status()
-    return {"status": "replied"}
+# async def reply(token: str, text: str):
+#     async with httpx.AsyncClient() as c:
+#         response = await c.post("https://api.line.me/v2/bot/message/reply",headers={"Authorization": f"Bearer {line_channel_access_token}"},json={"replyToken": token,"messages": [{"type": "text", "text": text}]})
+#         response.raise_for_status()
+#     return {"status": "replied"}

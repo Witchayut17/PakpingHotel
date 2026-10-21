@@ -2,7 +2,7 @@
 
 const $ = (id) => document.getElementById(id)
 const BUCKET = 'https://rhhhqzqmctimhwjyvlts.supabase.co/storage/v1/object/public/Rooms/'
-const API = 'https://habitat-sacramento-stop-pcs.trycloudflare.com'
+const API = 'https://ruth-participation-insulation-identifies.trycloudflare.com'
 const money = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 })
 
 let userId = ''
@@ -109,25 +109,11 @@ function renderRooms() {
     const start = (currentRoomPage - 1) * roomPageSize
     const pageRooms = compactRooms.matches ? visible.slice(start, start + roomPageSize) : visible
     $('room-grid').replaceChildren(...pageRooms.map(roomCard))
-    const pagination = $('room-pagination')
-    pagination.hidden = pageCount <= 1
-    pagination.replaceChildren()
-    if (pageCount > 1) {
-        for (let page = 1; page <= pageCount; page++) {
-            const button = element('button', 'room-page', String(page))
-            button.type = 'button'
-            button.setAttribute('aria-label', `หน้าที่ ${page}`)
-            button.setAttribute('aria-controls', 'room-grid')
-            if (page === currentRoomPage) button.setAttribute('aria-current', 'page')
-            button.addEventListener('click', () => {
-                currentRoomPage = page
-                renderRooms()
-                $('room-pagination').querySelector('[aria-current="page"]').focus({ preventScroll: true })
-                $('room-toolbar').scrollIntoView({ block: 'start', behavior: 'instant' })
-            })
-            pagination.append(button)
-        }
-    }
+    window.PakpingPagination.render($('room-pagination'), {
+        pageCount, currentPage: currentRoomPage, controlsId: 'room-grid',
+        onPage: (page) => { currentRoomPage = page; renderRooms() },
+        scrollTarget: $('room-toolbar'),
+    })
     $('room-count').textContent = `ห้องทั้งหมด ${visible.length} ${visible.length === 1 ? 'room' : 'ห้อง'}`
     $('room-status').hidden = visible.length > 0
     if (!visible.length) $('room-status').textContent = 'ห้องเพิ่งถูกจัดการใหม่โปรด โหลดหน้าเว็บอีกครั้ง'

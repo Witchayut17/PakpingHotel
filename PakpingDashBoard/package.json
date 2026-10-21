@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "client": "python -m http.server --directory . 5500"
+    "client": "python dev_server.py"
   }
 }

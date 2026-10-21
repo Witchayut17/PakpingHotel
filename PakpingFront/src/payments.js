@@ -18,25 +18,11 @@ const cancellingBookingIds = new Set();
 const pageSize = 3;
 
 function renderPagination(pageCount) {
-    pagination.replaceChildren();
-    pagination.hidden = pageCount <= 1;
-    if (pageCount <= 1) return;
-    for (let page = 1; page <= pageCount; page++) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'payments-page';
-        button.textContent = String(page);
-        button.setAttribute('aria-label', `หน้าที่ ${page}`);
-        button.setAttribute('aria-controls', 'payments-list');
-        if (page === currentPage) button.setAttribute('aria-current', 'page');
-        button.addEventListener('click', () => {
-            currentPage = page;
-            render();
-            pagination.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
-            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-        pagination.append(button);
-    }
+    window.PakpingPagination.render(pagination, {
+        pageCount, currentPage, controlsId: 'payments-list',
+        onPage: (page) => { currentPage = page; render(); },
+        scrollTarget: section,
+    });
 }
 
 function render() {

@@ -6,8 +6,8 @@
     --muted: #706f63;
     --gold: #9a7842;
     --line: #dedbce;
-    --serif: 'Archivo Black', Georgia, serif;
-    --sans: 'Archivo Black', Arial, sans-serif
+    --serif: 'Cormorant Garamond', 'IBM Plex Sans Thai', Georgia, serif;
+    --sans: 'IBM Plex Sans Thai', Arial, sans-serif
 }
 
 * {
@@ -23,7 +23,7 @@ body {
     margin: 0;
     background: var(--cream);
     color: var(--ink);
-    font: 14px/1.7 var(--sans)
+    font: 16px/1.65 var(--sans)
 }
 
 body:has(dialog[open]) {
@@ -141,7 +141,7 @@ em {
 
 .brand small {
     display: block;
-    font-size: 8px;
+    font-size: 11px;
     letter-spacing: 3.5px
 }
 
@@ -152,7 +152,7 @@ em {
 
 .nav-link {
     font-weight: 600;
-    font-size: 20px;
+    font-size: 16px;
     text-decoration: underline;
     text-underline-offset: 6px;
     text-decoration-thickness: 1px;
@@ -164,7 +164,7 @@ em {
     gap: 14px;
     flex-wrap: wrap;
     min-width: 0;
-    font-size: 12px
+    font-size: 14px
 }
 
 #lineProfile {
@@ -178,7 +178,7 @@ em {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 20px;
+    font-size: 14px;
 }
 
 #lineImage {
@@ -193,10 +193,10 @@ em {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 35px;
+    gap: 16px;
     min-height: 48px;
     padding: 12px 24px;
-    font-size: 12px;
+    font-size: 14px;
     letter-spacing: .3px;
     transition: background .2s, transform .2s
 }
@@ -207,7 +207,7 @@ em {
 }
 
 .button-green {
-    font-size: 15px;
+    font-size: 14px;
     background: var(--green);
     color: var(--cream);
     border-radius: 15px;
@@ -247,7 +247,7 @@ em {
 }
 
 .eyebrow {
-    font-size: 30px;
+    font-size: 16px;
     letter-spacing: 2.1px;
     font-weight: 500;
     color: var(--gold);
@@ -263,7 +263,7 @@ em {
 }
 
 h1 {
-    font-size: clamp(70px, 6.8vw, 106px);
+    font-size: clamp(42px, 6.8vw, 88px);
     line-height: .98;
     letter-spacing: -3px;
     margin: 30px 0 25px
@@ -275,19 +275,19 @@ h1 {
 }
 
 #hero-title {
-    font-size: clamp(36px, 4.8vw, 80px);
+    font-size: clamp(42px, 4.8vw, 72px);
     line-height: 1.2;
     overflow-wrap: anywhere;
 }
 
 .hero .eyebrow {
-    font-size: clamp(14px, 1.6vw, 24px);
+    font-size: clamp(14px, 1.6vw, 18px);
     letter-spacing: .8px;
 }
 
 .hero-description {
     color: var(--muted);
-    font-size: 13px;
+    font-size: 16px;
     line-height: 1.9;
     margin: 13px 0 29px
 }
@@ -383,7 +383,7 @@ h1 {
 
 .photo-surface.failed:before {
     content: 'ไม่สามารถแสดงภาพได้';
-    font-size: 12px;
+    font-size: 14px;
     color: var(--muted)
 }
 
@@ -472,7 +472,7 @@ h2 {
     border: 1px solid var(--line);
     background: transparent;
     border-radius: 2px;
-    font-size: 11px
+    font-size: 14px
 }
 
 .filter.active {
@@ -482,7 +482,7 @@ h2 {
 }
 
 .room-count {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--muted);
     white-space: nowrap
 }
@@ -544,7 +544,7 @@ h2 {
 }
 
 .card-type {
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 2px;
     color: var(--gold);
     text-transform: uppercase;
@@ -553,14 +553,14 @@ h2 {
 
 .card-body h3 {
     font-family: var(--sans);
-    font-size: 17px;
+    font-size: 19px;
     font-weight: 500;
     line-height: 1.6;
     margin-bottom: 9px
 }
 
 .card-description {
-    font-size: 11px;
+    font-size: 14px;
     line-height: 1.9;
     color: var(--muted);
     margin-bottom: 23px;
@@ -584,7 +584,7 @@ h2 {
 }
 
 .price-note {
-    font: 10px var(--sans);
+    font: 12px var(--sans);
     color: var(--muted);
     margin-left: 3px
 }
@@ -618,7 +618,7 @@ h2 {
     text-align: center;
     margin-bottom: 20px;
     color: var(--muted);
-    font-size: 13px
+    font-size: 14px
 }
 
 .loading-dot {
@@ -707,7 +707,7 @@ h2 {
     padding: 15px 20px;
     background: #edeae1;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     text-align: left;
     white-space: nowrap;
@@ -753,7 +753,7 @@ h2 {
 .payment-decline-reason {
     margin: 0 0 8px;
     color: #8b3d35;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.5;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
@@ -762,7 +762,7 @@ h2 {
 .payment-decline-warning {
     margin: 0 0 8px;
     color: #8b3d35;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.5;
     overflow-wrap: anywhere;
 }
@@ -789,13 +789,13 @@ h2 {
     display: block;
     margin-top: 8px;
     color: #8b3d35;
-    font-size: 12px;
+    font-size: 13px;
     white-space: normal;
 }
 
 .payment-action-note {
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .payment-status {
@@ -872,33 +872,6 @@ h2 {
     margin-top: 22px;
 }
 
-.payments-page {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 8px 12px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--paper);
-    color: var(--green);
-    font-size: 14px;
-}
-
-.payments-page:hover:not([aria-current="page"]) {
-    border-color: var(--green);
-    background: #edf1eb;
-}
-
-.payments-page[aria-current="page"] {
-    border-color: var(--green);
-    background: var(--green);
-    color: var(--paper);
-}
-
-.payments-page:focus-visible {
-    outline: 2px solid var(--gold);
-    outline-offset: 4px;
-}
-
 @media (max-width: 980px) {
     .payments-table-wrap {
         overflow: visible;
@@ -969,7 +942,7 @@ h2 {
         content: attr(data-label);
         flex: none;
         color: var(--muted);
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 500;
         text-align: left;
     }
@@ -1114,7 +1087,7 @@ footer>p {
 }
 
 footer>span {
-    font-size: 10px;
+    font-size: 13px;
     color: var(--muted)
 }
 
@@ -1129,12 +1102,16 @@ footer>span {
 }
 
 dialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
     border: 1px solid var(--line);
     padding: 0;
     background: var(--paper);
     color: var(--ink);
-    max-height: 90dvh;
+    max-height: calc(100dvh - 24px);
     overflow: auto;
+    overscroll-behavior: contain;
     box-shadow: 0 20px 100px #0003
 }
 
@@ -1202,7 +1179,7 @@ dialog::backdrop {
 }
 
 .detail-copy>p:not(.eyebrow) {
-    font-size: 19px;
+    font-size: 16px;
     color: var(--muted);
     line-height: 1.9
 }
@@ -1222,12 +1199,12 @@ dialog::backdrop {
 }
 
 .detail-bottom p>span {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--muted)
 }
 
 .detail-copy .detail-note {
-    font-size: 12px !important;
+    font-size: 14px !important;
     margin: 18px 0 25px
 }
 
@@ -1237,7 +1214,7 @@ dialog::backdrop {
 }
 
 #booking-dialog {
-    width: min(620px, calc(100% - 24px));
+    width: min(620px, calc(100vw - 24px));
     max-height: calc(100dvh - 24px);
     padding: clamp(24px, 5vw, 40px);
     border: 1px solid var(--line);
@@ -1254,7 +1231,7 @@ dialog::backdrop {
 
 .booking-hint {
     color: var(--muted);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.8;
 }
 
@@ -1269,7 +1246,7 @@ dialog::backdrop {
     display: grid;
     gap: 8px;
     min-width: 0;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .booking-wide {
@@ -1450,6 +1427,10 @@ dialog::backdrop {
         grid-template-columns: minmax(0, 1fr);
     }
 
+    #booking-dialog {
+        padding: 24px 18px;
+    }
+
     .booking-calendar {
         padding: 8px;
     }
@@ -1487,7 +1468,7 @@ dialog::backdrop {
     padding: 14px 22px;
     z-index: 5;
     box-shadow: 0 4px 25px #0002;
-    font-size: 12px
+    font-size: 14px
 }
 
 @media(min-width:1500px) {
@@ -1556,7 +1537,7 @@ dialog::backdrop {
     }
 
     .card-body h3 {
-        font-size: 15px
+        font-size: 18px
     }
 
     .moments {
@@ -1593,45 +1574,6 @@ dialog::backdrop {
         border-top: 1px solid var(--line);
     }
 
-    .room-page {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 48px;
-        min-height: 48px;
-        padding: 12px 18px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--paper);
-        color: var(--green);
-        font-size: 14px;
-        line-height: 1.4;
-    }
-
-    .room-page[aria-current="page"] {
-        background: var(--green);
-        border-color: var(--green);
-        color: var(--paper);
-        box-shadow: 0 3px 8px #334c4026;
-    }
-
-    .room-page:focus-visible {
-        outline: 2px solid var(--gold);
-        outline-offset: 4px;
-    }
-
-    .room-page:active {
-        border-color: var(--gold);
-    }
-
-    @media(hover:hover) {
-        .room-page:hover:not([aria-current="page"]) {
-            background: var(--cream);
-            border-color: var(--gold);
-            color: var(--gold);
-        }
-    }
-
     .header {
         min-height: 0;
         padding: 16px 5% 8px;
@@ -1645,7 +1587,7 @@ dialog::backdrop {
     }
 
     .brand small {
-        font-size: 7px;
+        font-size: 10px;
         letter-spacing: 2.4px
     }
 
@@ -1665,7 +1607,7 @@ dialog::backdrop {
     }
 
     .nav-link {
-        font-size: 20px;
+        font-size: 15px;
         font-weight: 600;
         padding: 12px 8px;
     }
@@ -1678,15 +1620,15 @@ dialog::backdrop {
     }
 
     .account .button {
-        font-size: 10px;
+        font-size: 13px;
         padding: 9px 12px;
         min-height: 40px;
-        max-width: 150px
+        max-width: 160px
     }
 
     #lineName {
         max-width: 95px;
-        font-size: 10px
+        font-size: 13px
     }
 
     #lineImage {
@@ -1710,15 +1652,15 @@ dialog::backdrop {
     }
 
     .hero .eyebrow {
-        font-size: 23px;
+        font-size: 16px;
         letter-spacing: 0;
         gap: 8px;
         justify-content: center;
     }
 
     #hero-title {
-        font-size: clamp(30px, 7.2vw, 46px);
-        line-height: 1.4;
+        font-size: clamp(34px, 7.2vw, 46px);
+        line-height: 1.2;
         letter-spacing: -.5px;
         margin: 18px 0;
     }
@@ -1799,7 +1741,7 @@ dialog::backdrop {
     .section-heading>p {
         margin-top: 20px;
         max-width: none;
-        font-size: 12px
+        font-size: 14px
     }
 
     h2 {
@@ -1807,7 +1749,7 @@ dialog::backdrop {
     }
 
     .eyebrow {
-        font-size: 9px;
+        font-size: 14px;
         letter-spacing: 1.7px
     }
 
@@ -1829,7 +1771,7 @@ dialog::backdrop {
     }
 
     .room-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
         gap: 22px 12px
     }
 
@@ -1840,7 +1782,7 @@ dialog::backdrop {
     .card-photo .room-number {
         top: 10px;
         left: 10px;
-        font-size: 9px;
+        font-size: 12px;
         padding: 3px 7px
     }
 
@@ -1873,11 +1815,11 @@ dialog::backdrop {
     }
 
     .card-type {
-        font-size: 10px
+        font-size: 12px
     }
 
     .availability-note {
-        font-size: 13px;
+        font-size: 14px;
         margin-top: 28px;
         line-height: 1.9
     }
@@ -1958,7 +1900,7 @@ dialog::backdrop {
     }
 
     footer>span {
-        font-size: 9px
+        font-size: 13px
     }
 
     #room-dialog[open] {
@@ -2009,7 +1951,7 @@ dialog::backdrop {
 
     .welcome-strip {
         gap: 8px;
-        font-size: 12px
+        font-size: 14px
     }
 
     .room-grid {
@@ -2158,4 +2100,117 @@ dialog::backdrop {
     .underlined-link span {
         transform: none !important;
     }
+}
+
+/* Keep every pager on one line, including narrow phone screens. */
+.payments-pagination[hidden],
+.room-pagination[hidden] {
+    display: none !important;
+}
+
+.payments-pagination.pagination-bar:not([hidden]),
+.room-pagination.pagination-bar:not([hidden]) {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    padding-inline: 0;
+}
+
+.pagination-bar .pagination-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.pagination-bar .pagination-controls,
+.pagination-bar .pagination-navigation,
+.pagination-bar .pagination-jump {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+.pagination-bar .pagination-controls {
+    max-width: 100%;
+    gap: clamp(6px, 1.3vw, 14px);
+}
+
+.pagination-bar .pagination-navigation,
+.pagination-bar .pagination-jump {
+    gap: clamp(2px, .5vw, 6px);
+}
+
+.pagination-bar .pagination-number,
+.pagination-bar .pagination-step,
+.pagination-bar .pagination-last,
+.pagination-bar .pagination-jump button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: clamp(24px, 7.3vw, 36px);
+    height: 36px;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--green);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.pagination-bar .pagination-number[aria-current="page"] {
+    border-color: var(--green);
+    background: var(--green);
+    color: var(--paper);
+}
+
+.pagination-bar .pagination-step:not(:disabled),
+.pagination-bar .pagination-last:not(:disabled) {
+    border-color: var(--green);
+    background: var(--green);
+    color: var(--paper);
+}
+
+.pagination-bar .pagination-step:disabled,
+.pagination-bar .pagination-last:disabled {
+    opacity: .4;
+    cursor: default;
+}
+
+.pagination-bar .pagination-jump {
+    margin: 0;
+}
+
+.pagination-bar .pagination-jump input {
+    box-sizing: border-box;
+    width: clamp(32px, 10vw, 48px);
+    height: 36px;
+    padding: 0 2px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--green);
+    font: inherit;
+    font-size: 14px;
+    text-align: center;
+    appearance: textfield;
+}
+
+.pagination-bar .pagination-jump input::-webkit-inner-spin-button,
+.pagination-bar .pagination-jump input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+}
+
+.pagination-bar button:focus-visible,
+.pagination-bar input:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
 }

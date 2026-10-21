@@ -311,6 +311,30 @@ main {
   background: #efdad5;
 }
 
+.review-table .slip-view-button.slip-awaiting-review {
+  background: #f8e9e6;
+  border-color: #e8c6c0;
+  color: #8b3d35;
+}
+
+.review-table .slip-view-button.slip-awaiting-review:hover {
+  background: #f2dcd8;
+  border-color: #dbaaa2;
+  color: #8b3d35;
+}
+
+.review-table .slip-view-button.slip-other-status {
+  background: #e8f3e9;
+  border-color: #bed8c2;
+  color: #286046;
+}
+
+.review-table .slip-view-button.slip-other-status:hover {
+  background: #dcebdd;
+  border-color: #a8c9ad;
+  color: #286046;
+}
+
 .text-button {
   color: var(--green);
   font-size: 12px;
@@ -1022,6 +1046,30 @@ button.room-status-item:focus-visible {
   width: 340px;
 }
 
+.room-action-confirm-modal {
+  width: min(100%, 420px);
+}
+
+.room-action-confirm-details {
+  margin: 0 0 16px;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.room-action-confirm-note {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #edeae1;
+  color: var(--green);
+  font-size: 13px;
+}
+
+.room-action-confirm-actions {
+  justify-content: flex-end;
+}
+
 .toast {
   left: 50%;
   background: var(--green);
@@ -1271,6 +1319,114 @@ button.room-status-item:focus-visible {
   .card-heading .button {
     width: 100%;
   }
+}
+
+/* Compact pagination shared by rooms, analytics, and reservations. */
+.pagination-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.pagination-bar .pagination-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pagination-bar .pagination-controls,
+.pagination-bar .pagination-navigation,
+.pagination-bar .pagination-jump {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.pagination-bar .pagination-controls {
+  max-width: 100%;
+  gap: clamp(6px, 1.3vw, 14px);
+}
+
+.pagination-bar .pagination-navigation,
+.pagination-bar .pagination-jump {
+  gap: clamp(2px, .5vw, 6px);
+}
+
+.pagination-bar .pagination-number,
+.pagination-bar .pagination-step,
+.pagination-bar .pagination-last,
+.pagination-bar .pagination-jump button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: clamp(24px, 7.3vw, 36px);
+  height: 36px;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--green);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pagination-bar .pagination-number[aria-current="page"] {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--paper);
+}
+
+.pagination-bar .pagination-step:not(:disabled),
+.pagination-bar .pagination-last:not(:disabled) {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--paper);
+}
+
+.pagination-bar .pagination-step:disabled,
+.pagination-bar .pagination-last:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+.pagination-bar .pagination-jump {
+  margin: 0;
+}
+
+.pagination-bar .pagination-jump input {
+  box-sizing: border-box;
+  width: clamp(32px, 10vw, 48px);
+  height: 36px;
+  padding: 0 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--green);
+  font: inherit;
+  font-size: 14px;
+  text-align: center;
+  appearance: textfield;
+}
+
+.pagination-bar .pagination-jump input::-webkit-inner-spin-button,
+.pagination-bar .pagination-jump input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.pagination-bar button:focus-visible,
+.pagination-bar input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 .app-shell[hidden],
 .dashboard-page[hidden],
@@ -1697,5 +1853,254 @@ html {
   #history {
     scroll-margin-top: 130px;
   }
+}
+
+.app-shell,
+.main-shell,
+main,
+.dashboard-panel,
+.card {
+  min-width: 0;
+}
+
+.room-pagination,
+.analytics-pagination,
+.reservation-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 18px 18px;
+}
+
+.reservation-pagination {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+#room-status-content {
+  scroll-margin-top: 20px;
+}
+
+@media (max-width: 900px) {
+  .reservations-card .table-scroll {
+    overflow: visible;
+    padding: 0 16px 16px;
+  }
+
+  .table-scroll .review-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .review-table tbody,
+  .review-table tr,
+  .review-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .review-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .review-table tr {
+    margin-bottom: 12px;
+    padding: 6px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--paper);
+  }
+
+  .review-table td,
+  .review-table td:first-child,
+  .review-table td:last-child {
+    display: grid;
+    grid-template-columns: minmax(78px, 34%) minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+  }
+
+  .review-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .review-table tbody tr:last-child td:not(:last-child) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .review-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .review-table td > *,
+  .review-table .review-guest,
+  .payment-method-cell,
+  .checkin-cell {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .review-table .button {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .analytics-heading > div:first-child {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .analytics-summary > [hidden],
+  .analytics-charts > [hidden] {
+    display: none !important;
+  }
+
+  .analytics-pagination {
+    justify-content: center;
+    padding: 0 0 20px;
+    scroll-margin-top: 20px;
+  }
+
+  .analytics-summary,
+  .analytics-charts {
+    scroll-margin-top: 20px;
+  }
+
+  .dashboard-header {
+    position: relative;
+  }
+
+  #analytics,
+  #rooms,
+  #pending,
+  #history {
+    scroll-margin-top: 16px;
+  }
+
+  .dashboard-tabs {
+    min-width: 0;
+  }
+
+  .dashboard-tab {
+    min-width: 0;
+    font-size: 13px;
+  }
+
+  .page-title {
+    min-height: 0;
+    padding: 24px 20px;
+  }
+
+  .page-title h1 {
+    overflow-wrap: anywhere;
+  }
+
+  .room-status-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  }
+
+  .analytics-ranges {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .analytics-range {
+    flex: none;
+    min-height: 42px;
+  }
+
+  .analytics-content,
+  .analytics-custom-dates {
+    min-width: 0;
+  }
+
+  .analytics-summary strong {
+    font-size: clamp(20px, 5vw, 28px);
+  }
+
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .modal {
+    width: min(100%, 570px);
+    max-height: calc(100dvh - 24px);
+  }
+}
+
+@media (max-width: 600px) {
+  .room-controls,
+  .reservation-controls {
+    align-items: stretch;
+  }
+
+  .room-controls > *,
+  .reservation-controls > * {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+  }
+
+  .room-controls .status-filter summary,
+  .reservation-controls .status-filter summary {
+    width: 100%;
+  }
+
+  .room-pagination,
+  .reservation-pagination {
+    justify-content: center;
+    text-align: center;
+  }
+
+}
+
+@media (max-width: 430px) {
+  .analytics-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-table tr {
+    padding-inline: 12px;
+  }
+
+  .review-table td,
+  .review-table td:first-child,
+  .review-table td:last-child {
+    grid-template-columns: minmax(72px, 31%) minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .modal {
+    padding: 20px 16px;
+  }
+}
+
+.room-pagination.pagination-bar,
+.analytics-pagination.pagination-bar,
+.reservation-pagination.pagination-bar {
+  flex-wrap: nowrap;
+  justify-content: center;
+  padding-inline: 0;
 }
 

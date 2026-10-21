@@ -7,14 +7,9 @@ from storge.db import get_db
 from services.reply_flexroom import reply_available_rooms, send_approval_message, reply_maintenance_rooms
 from repository.api_repo import create_booking, make_qr_url, worker_data_input, set_room_status
 from services.n8n_event import process_n8n_event
-from datetime import datetime, timezone
 
 db = get_db()
 logger = logging.getLogger(__name__)
-ROOM_FIELDS = (
-    "room_number", "room_name", "room_type", "price_per_night",
-    "description", "imageUrl",
-)
 
 async def received_n8n(payload: dict = Body(...)) -> dict:
     if "body" in payload:

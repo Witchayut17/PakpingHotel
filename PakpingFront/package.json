@@ -1,0 +1,7 @@
+{
+  "name": "pakping-front-vanilla",
+  "private": true,
+  "scripts": {
+    "client": "python -m http.server --directory src 8000"
+  }
+}

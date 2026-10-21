@@ -560,7 +560,7 @@ def list_reservations() -> dict:
             offset += len(page)
     except Exception as ex:
         logger.exception("Unable to load reservations")
-        raise HTTPException(status_code=503, detail="Reservations are temporarily unavailable") from ex
+        raise HTTPException(status_code=503, detail="ไม่สามารถโหลดข้อมูลได้ในขณะนี้") from ex
 
     now = datetime.now(timezone.utc)
     records = []
