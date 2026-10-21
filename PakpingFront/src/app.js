@@ -6,7 +6,6 @@ const API = 'https://ruth-participation-insulation-identifies.trycloudflare.com'
 const money = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 })
 
 let userId = ''
-let lineId = ''
 let rooms = []
 let activeRoom = null
 let selectedType = 'all'

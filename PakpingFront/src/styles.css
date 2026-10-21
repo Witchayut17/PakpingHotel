@@ -91,19 +91,6 @@ em {
     display: none !important
 }
 
-.skip-link {
-    position: absolute;
-    top: -100px;
-    background: var(--green);
-    color: white;
-    padding: 12px;
-    z-index: 20
-}
-
-.skip-link:focus {
-    top: 0
-}
-
 .header {
     flex-wrap: wrap;
     max-width: 1440px;
@@ -211,11 +198,6 @@ em {
     background: var(--green);
     color: var(--cream);
     border-radius: 15px;
-}
-
-.button-cream {
-    background: var(--cream);
-    color: var(--green)
 }
 
 .button span {
@@ -342,31 +324,6 @@ h1 {
 .hero-photo figcaption i {
     margin: 0 8px;
     font-style: normal
-}
-
-.photo-label {
-    position: absolute;
-    top: 32px;
-    right: 25px;
-    z-index: 1;
-    background: var(--cream);
-    width: 122px;
-    height: 130px;
-    border-radius: 70px 70px 0 0;
-    text-align: center;
-    padding: 34px 10px 15px;
-    box-shadow: 0 2px 12px #0001
-}
-
-.photo-label>span {
-    font-size: 8px;
-    letter-spacing: 1.8px
-}
-
-.photo-label strong {
-    display: block;
-    font: italic 28px var(--serif);
-    color: var(--gold)
 }
 
 .photo-surface {
@@ -643,24 +600,6 @@ h2 {
     grid-template-columns: minmax(0, 1fr) minmax(0, 2.3fr);
     align-items: center;
     gap: 30px
-}
-
-.moments-copy {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    padding-right: 25px
-}
-
-.moments-copy h2 {
-    margin: 20px 0;
-    font-size: clamp(32px, 3.5vw, 52px)
-}
-
-.moments-copy>p:not(.eyebrow) {
-    font-size: 12px;
-    color: var(--muted);
-    max-width: 260px;
-    line-height: 1.9
 }
 
 .my-payments {
@@ -982,17 +921,6 @@ h2 {
 
 }
 
-.underlined-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 16px;
-    max-width: 100%;
-    font-size: clamp(14px, 1.4vw, 20px);
-    border-bottom: 1px solid var(--gold);
-    padding-bottom: 7px;
-    margin-top: 27px
-}
-
 .gallery-tile {
     border: 0;
     padding: 0;
@@ -1013,19 +941,6 @@ h2 {
     transition: transform .5s
 }
 
-.gallery-tall {
-    width: 100%;
-    min-width: 0;
-    height: 700px;
-    border-radius: 0;
-    margin-bottom: 0;
-}
-
-.gallery-short {
-    height: 330px;
-    margin-top: 100px
-}
-
 .gallery-tile>span {
     position: absolute;
     bottom: 0;
@@ -1042,33 +957,6 @@ h2 {
 
 .gallery-tile i {
     font: 20px var(--sans)
-}
-
-.closing {
-    background: var(--green);
-    text-align: center;
-    padding: 70px 20px;
-    color: var(--cream)
-}
-
-.closing .eyebrow {
-    justify-content: center;
-    color: #cfbd94
-}
-
-.closing h2 {
-    margin: 21px 0 30px;
-    font-size: 56px
-}
-
-.closing em {
-    color: #d4bf91
-}
-
-.closing>p:last-child {
-    font-size: 11px;
-    margin-top: 24px;
-    color: #d7decd
 }
 
 footer {
@@ -1447,10 +1335,6 @@ dialog::backdrop {
     background: #e2dfd3
 }
 
-.pernight {
-    font-size: 25px;
-}
-
 #photo-caption {
     padding: 14px 25px;
     font: 24px var(--serif)
@@ -1543,22 +1427,6 @@ dialog::backdrop {
     .moments {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
         gap: 20px
-    }
-
-    .moments-copy {
-        padding: 0
-    }
-
-    .moments-copy h2 {
-        font-size: clamp(30px, 4vw, 42px)
-    }
-
-    .gallery-tall {
-        height: 520px
-    }
-
-    .gallery-short {
-        height: 280px
     }
 }
 
@@ -1680,10 +1548,6 @@ dialog::backdrop {
         margin: 10px 0 24px
     }
 
-    .hero-footnote {
-        display: none
-    }
-
     .hero-photo {
         min-height: 0;
         aspect-ratio: 4 / 3;
@@ -1693,22 +1557,6 @@ dialog::backdrop {
 
     .hero-photo figcaption {
         bottom: 20px
-    }
-
-    .photo-label {
-        width: 100px;
-        height: 110px;
-        top: 20px;
-        right: 20px;
-        padding-top: 27px
-    }
-
-    .photo-label strong {
-        font-size: 24px
-    }
-
-    .photo-label>span {
-        font-size: 7px
     }
 
     .welcome-strip {
@@ -1831,62 +1679,15 @@ dialog::backdrop {
         text-align: center;
     }
 
-    .moments-copy {
-        grid-column: 1/-1;
-        margin-bottom: 15px;
-        padding-right: 0;
-        width: 100%;
-        max-width: 480px;
-    }
-
-    .moments-copy .eyebrow {
-        justify-content: center;
-    }
-
     .moments>img {
         width: 100%;
         height: auto;
         border-radius: 12px;
     }
 
-    .moments-copy h2 {
-        font-size: clamp(32px, 7vw, 48px)
-    }
-
-    .moments-copy>p:not(.eyebrow) {
-        max-width: 320px;
-        margin-inline: auto;
-    }
-
-    .decorative-flower {
-        display: none
-    }
-
-    .gallery-tall {
-        height: auto;
-        aspect-ratio: 6 / 5
-    }
-
-    .gallery-short {
-        height: 240px;
-        margin-top: 60px
-    }
-
     .gallery-tile>span {
         font-size: 19px;
         padding: 45px 12px 15px
-    }
-
-    .closing {
-        padding: 55px 20px
-    }
-
-    .closing h2 {
-        font-size: 46px
-    }
-
-    .closing .eyebrow {
-        font-size: 10px
     }
 
     footer {
@@ -1989,16 +1790,11 @@ dialog::backdrop {
     transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
 }
 
-.nav-link,
-.text-button,
-.card-link,
-.underlined-link {
+.nav-link,.text-button,.card-link{
     transition: color .2s ease;
 }
 
-.button span,
-.card-link span,
-.underlined-link span {
+.button span,.card-link span{
     display: inline-block;
     transition: transform .2s ease;
 }
@@ -2030,8 +1826,7 @@ dialog::backdrop {
         box-shadow: 0 6px 16px #334c4020;
     }
 
-    .button-outline:hover:not(:disabled),
-    .button-cream:hover:not(:disabled) {
+    .button-outline:hover:not(:disabled){
         background: #eae7dc;
     }
 
@@ -2039,10 +1834,7 @@ dialog::backdrop {
         background: #203c2d;
     }
 
-    .nav-link:hover,
-    .text-button:hover:not(:disabled),
-    .card-link:hover:not(:disabled),
-    .underlined-link:hover {
+    .nav-link:hover,.text-button:hover:not(:disabled),.card-link:hover:not(:disabled){
         color: var(--gold);
     }
 
@@ -2066,9 +1858,7 @@ dialog::backdrop {
         transform: scale(1.035);
     }
 
-    .button:hover:not(:disabled) span,
-    .card-link:hover:not(:disabled) span,
-    .underlined-link:hover span {
+    .button:hover:not(:disabled) span,.card-link:hover:not(:disabled) span{
         transform: translate(2px, -2px);
     }
 
@@ -2090,14 +1880,7 @@ dialog::backdrop {
         transition: none !important
     }
 
-    .button,
-    .filter,
-    .room-card,
-    .card-photo img,
-    .gallery-tile img,
-    .button span,
-    .card-link span,
-    .underlined-link span {
+    .button,.filter,.room-card,.card-photo img,.gallery-tile img,.button span,.card-link span{
         transform: none !important;
     }
 }
