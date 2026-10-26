@@ -821,7 +821,7 @@ def set_room_status(room_number: str, status: str):
 def insert_worker_data(userId: str, worker_name: str) -> dict:
     if not userId or not worker_name:
         raise HTTPException(status_code=422, detail="กรุณาระบุ userId และชื่อพนักงานครับ")
-    result = db.table("Worker").insert({"line_user_id": userId, "worker_name": worker_name}).execute()
+    result = db.table("Worker").insert({"line_user_id": userId, "worker_name": worker_name, "role": "housekeeper"}).execute()
     return {"data": result.data}
 
 async def worker_data_input(userId: str):
