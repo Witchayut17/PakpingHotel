@@ -6,6 +6,6 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-PROMPTPAY_ID = os.getenv("PROMPTPAY_ID")
+PROMPTPAY_ID = os.getenv("PROMPTPAY_ID") or os.getenv("Promptpay_ID")
 line_channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN") or os.getenv("line_channel_access_token")
 line_channel_access_token_housekeeper = os.getenv("LINE_CHANNEL_ACCESS_TOKEN_HOUSEKEEPER") or os.getenv("line_channel_access_token_housekeeper")

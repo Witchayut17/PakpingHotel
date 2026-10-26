@@ -122,9 +122,9 @@ export function renderAnalytics(state, root, { esc, money, number }) {
   const bookedValue = confirmedRows.reduce((sum, row) => sum + amount(row.full_amount), 0);
   const confirmedPaid = confirmedRows.reduce((sum, row) =>
     sum + Math.min(amount(row.full_amount), amount(row.amount)), 0);
-  const missingPaid = checkInRows.filter((row) => row.status === 'missing')
+  const closedPaid = checkInRows.filter((row) => ['missing', 'cancel'].includes(row.status))
     .reduce((sum, row) => sum + amount(row.amount), 0);
-  const paidToDate = confirmedPaid + missingPaid;
+  const paidToDate = confirmedPaid + closedPaid;
   const outstanding = bookedValue - confirmedPaid;
   const roomNights = new Set();
   for (const row of rows) {
@@ -219,7 +219,7 @@ export function renderAnalytics(state, root, { esc, money, number }) {
 
     <div class="analytics-summary">
       ${card('ยอดจองที่อนุมัติ', money.format(bookedValue), `ยอดเต็มของ ${number.format(confirmedRows.length)} การจอง`, 'booked', esc)}
-      ${card('รับชำระแล้ว', money.format(paidToDate), 'รวมยอดที่รับจากรายการไม่เข้าพัก', 'paid', esc)}
+      ${card('รับชำระแล้ว', money.format(paidToDate), 'รวมยอดที่รับจากรายการยกเลิกและไม่เข้าพัก', 'paid', esc)}
       ${card('ยอดค้างรับ', money.format(outstanding), 'เฉพาะรายการ ready / inhouse / success', 'balance', esc)}
       ${card('อัตราเข้าพัก / จอง', `${occupancy}%`, `${number.format(roomNights.size)} / ${number.format(availableNights)} ห้อง-คืน`, 'occupancy', esc)}
       ${card('กำลังเข้าพัก', number.format(inhouseCount), 'จำนวนรายการที่เข้าพักอยู่ขณะนี้', 'inhouse', esc)}

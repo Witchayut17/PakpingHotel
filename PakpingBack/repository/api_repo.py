@@ -41,63 +41,54 @@ def payment_due(full_amount, payment_method):
     if not math.isfinite(full_amount) or full_amount <= 0:
         raise HTTPException(status_code=409, detail="ยอดรวมการจองไม่ถูกต้องครับ")
     if payment_method == "partial_deposit":
-        return round(full_amount * 0.30)
+        return round(full_amount * 0.50)
     if payment_method == "full_payment":
         return full_amount
     raise HTTPException(status_code=409, detail="วิธีชำระเงินไม่ถูกต้องครับ")
 
 def cancel_booking(user_id: str, booking_id: str | None = None):
-    with booking_lock:
-        query = (db.table("Payments").delete()
-                 .eq("line_user_id", user_id)
-                 .in_("status", ["pending", "expired"])
-                 .is_("paid_at", "null").is_("slip_path", "null"))
-        if booking_id is not None:
-            query = query.eq("_id", booking_id)
-        deleted = query.execute().data
-        if not deleted:
-            return {"status": "not_found", "deleted_count": 0, "rooms": [], "qr_deleted_count": 0}
+    deleted = db.rpc("cancel_unpaid_bookings_atomic", {
+        "p_user_id": user_id,
+        "p_booking_id": booking_id,
+    }).execute().data or []
+    if not deleted:
+        return {"status": "not_found", "deleted_count": 0, "rooms": [], "qr_deleted_count": 0}
 
-        rooms = sorted({row["room_number"] for row in deleted})
-        cleanup_errors = []
-        qr_deleted_count = 0
-        for row in deleted:
-            booking_id = row.get("id") if row.get("id") is not None else row.get("_id")
-            if booking_id is None:
-                cleanup_errors.append({"room_number": row["room_number"], "operation": "missing_booking_id"})
-                continue
-            prefix = f"{booking_id}-"
-            try:
-                db.table("Customers").delete().eq("booking_id", str(booking_id)).execute()
+    rooms = sorted({row["room_number"] for row in deleted})
+    cleanup_errors = []
+    qr_deleted_count = 0
+    for row in deleted:
+        deleted_id = row.get("id") if row.get("id") is not None else row.get("_id")
+        if deleted_id is None:
+            cleanup_errors.append({"room_number": row["room_number"], "operation": "missing_booking_id"})
+            continue
+        prefix = f"{deleted_id}-"
+        try:
+            bucket = db.storage.from_("Qrcode")
+            paths = []
+            offset = 0
+            while True:
+                page = bucket.list(options={"search": prefix, "limit": 100, "offset": offset,
+                                            "sortBy": {"column": "name", "order": "asc"}})
+                paths.extend(item["name"] for item in page
+                             if item.get("name", "").startswith(prefix) and item["name"].endswith(".png"))
+                if len(page) < 100:
+                    break
+                offset += len(page)
+            for start in range(0, len(paths), 100):
+                batch = paths[start:start + 100]
+                bucket.remove(batch)
+                qr_deleted_count += len(batch)
+        except Exception:
+            logger.exception("Unable to delete QR files for booking %s", deleted_id)
+            cleanup_errors.append({"booking_id": str(deleted_id), "operation": "delete_qr", "prefix": prefix})
 
-                bucket = db.storage.from_("Qrcode")
-                paths = []
-                offset = 0
-                while True:
-                    page = bucket.list(options={"search": prefix, "limit": 100, "offset": offset,"sortBy": {"column": "name", "order": "asc"}})
-                    paths.extend(item["name"] for item in page
-                                 if item.get("name", "").startswith(prefix) and item["name"].endswith(".png"))
-                    if len(page) < 100:
-                        break
-                    offset += len(page)
-                for start in range(0, len(paths), 100):
-                    batch = paths[start:start + 100]
-                    bucket.remove(batch)
-                    qr_deleted_count += len(batch)
-            except Exception:
-                logger.exception("Unable to delete QR files for booking %s", booking_id)
-                cleanup_errors.append({"booking_id": str(booking_id), "operation": "delete_qr", "prefix": prefix})
-
-        result = {"status": "cancelled", "deleted_count": len(deleted),
-                  "rooms": rooms, "qr_deleted_count": qr_deleted_count}
-        if cleanup_errors:
-            raise HTTPException(status_code=502, detail={
-                **result,
-                "status": "cleanup_failed",
-                "message": "ยกเลิกรายการจองแล้ว แต่ลบข้อมูลที่เกี่ยวข้องไม่สำเร็จครับ",
-                "errors": cleanup_errors,
-            })
-        return result
+    result = {"status": "cancelled", "deleted_count": len(deleted),
+              "rooms": rooms, "qr_deleted_count": qr_deleted_count,
+              "qr_cleanup_status": "failed" if cleanup_errors else "complete"}
+    if cleanup_errors:
+        result["cleanup_errors"] = cleanup_errors
+    return result
 
 def make_qr_url(booking: dict) -> str:
     try:
@@ -113,153 +104,81 @@ def make_qr_url(booking: dict) -> str:
     img.save(buf, format="PNG")
     booking_id = booking.get("id") or booking.get("_id")
     path = f"{booking_id}-{uuid.uuid4().hex[:6]}.png"
-    db.storage.from_("Qrcode").upload(path, buf.getvalue(), {"content-type": "image/png"})
-    return db.storage.from_("Qrcode").get_public_url(path)
+    bucket = db.storage.from_("Qrcode")
+    bucket.upload(path, buf.getvalue(), {"content-type": "image/png"})
+    try:
+        return bucket.get_public_url(path)
+    except Exception:
+        try:
+            bucket.remove([path])
+        except Exception:
+            logger.exception("Unable to remove QR file after URL creation failed: %s", path)
+        raise
+
+def rollback_booking_without_qr(booking: dict) -> bool:
+    booking_id = booking.get("id") or booking.get("_id")
+    return bool(db.rpc("rollback_booking_without_qr", {
+        "p_booking_id": str(booking_id),
+        "p_user_id": booking["line_user_id"],
+    }).execute().data)
 
 def create_booking(user_name:str, user_phone:str, user_id:str, room_number:str, check_in:date, check_out:date, action:str):
-    with booking_lock:
-        if action not in ("full_payment", "partial_deposit"):
-            raise HTTPException(400, "วิธีชำระเงินไม่ถูกต้องครับ")
-        existing = (db.table("Payments").select("_id")
-                    .eq("line_user_id", user_id).eq("status", "pending")
-                    .gt("expired_at", datetime.now(timezone.utc).isoformat())
-                    .limit(1).execute().data)
-        if existing:
-            raise HTTPException(status_code=409, detail=PENDING_BOOKING_DETAIL)
-        validate_stay(db, room_number, check_in, check_out)
-        booking = _create_booking(user_id, room_number, check_in, check_out, action)
-        try:
-            db.table("Customers").insert({
-                "customer_name": user_name.strip(),
-                "phone_number": user_phone.strip(),
-                "line_user_id": user_id,
-                "room_number": room_number,
-                "booking_id": str(booking.get("id") or booking["_id"]),
-                "status": "pending",
-            }).execute()
-        except Exception as ex:
-            logger.exception("Unable to save guest details for room %s", room_number)
-            raise HTTPException(502, detail={
-                "booking": booking,
-                "message": "สร้างรายการจองแล้ว แต่บันทึกข้อมูลผู้เข้าพักไม่สำเร็จ กรุณาติดต่อที่พักและอย่าจองซ้ำครับ",
-            }) from ex
-        return booking
-
-def _create_booking(user_id:str, room_number:str, check_in:date, check_out:date, action:str):
+    if action not in ("full_payment", "partial_deposit"):
+        raise HTTPException(400, "วิธีชำระเงินไม่ถูกต้องครับ")
+    if check_in < datetime.now(timezone(timedelta(hours=7))).date() or check_out <= check_in:
+        raise HTTPException(400, "กรุณาเลือกวันเข้าพักตั้งแต่วันนี้ และวันออกหลังวันเข้าพักครับ")
     try:
-        if action == "full_payment":
-            room = (db.table("Rooms").select("*").eq("room_number", room_number).maybe_single().execute().data)
-
-            nights = (check_out - check_in).days
-
-            if not room or nights < 1:
-                raise HTTPException(status_code=400, detail="เลขห้องไม่ถูกต้อง หรือวันเช็คเอาต์ต้องอยู่หลังวันเช็คอินครับ")
-            
-            now = datetime.now(timezone.utc)
-
-            rows = (db.table("Payments").select("status,expired_at,paid_at,slip_path").eq("room_number", room_number).in_("status", ["paid", "pending"]).lt("check_in", str(check_out)).gt("check_out", str(check_in)).execute().data)
-
-            for r in rows:
-                if r["status"] == "paid" or r.get("paid_at") is not None or bool(r.get("slip_path")) or parse_db_timestamp(r["expired_at"]) > now:
-                    raise HTTPException(status_code=409, detail="ห้องไม่ว่างในช่วงวันที่เลือกครับ")
-                
-            full_amount = nights * float(room["price_per_night"])
-            booking = db.table("Payments").insert({
-            "room_number": room_number,
-            "line_user_id": user_id,
-            "payment_method": "full_payment",
-            "check_in": str(check_in),
-            "check_out": str(check_out),
-            "full_amount": full_amount,
-            "amount": 0,
-            "status": "pending",
-            "expired_at": (now + timedelta(minutes=5)).isoformat(),}).execute().data[0]
-
-            booking["payment_due"] = payment_due(full_amount, "full_payment")
-            return booking
-        
-        elif action == "partial_deposit":
-            room = (db.table("Rooms").select("*").eq("room_number", room_number).maybe_single().execute().data)
-
-            nights = (check_out - check_in).days
-
-            if not room or nights < 1:
-                raise HTTPException(status_code=400, detail="เลขห้องไม่ถูกต้อง หรือวันเช็คเอาต์ต้องอยู่หลังวันเช็คอินครับ")
-            
-            now = datetime.now(timezone.utc)
-
-            rows = (db.table("Payments").select("status,expired_at,paid_at,slip_path").eq("room_number", room_number).in_("status", ["paid", "pending"]).lt("check_in", str(check_out)).gt("check_out", str(check_in)).execute().data)
-
-            for r in rows:
-                if r["status"] == "paid" or r.get("paid_at") is not None or bool(r.get("slip_path")) or parse_db_timestamp(r["expired_at"]) > now:
-                    raise HTTPException(status_code=409, detail="ห้องไม่ว่างในช่วงวันที่เลือกครับ")
-                
-            full_amount = nights * float(room["price_per_night"])
-            booking = db.table("Payments").insert({
-            "room_number": room_number,
-            "line_user_id": user_id,
-            "payment_method": "partial_deposit",
-            "check_in": str(check_in),
-            "check_out": str(check_out),
-            "full_amount": full_amount,
-            "amount": 0,
-            "status": "pending",
-            "expired_at": (now + timedelta(minutes=5)).isoformat(),}).execute().data[0]
-
-            booking["payment_due"] = payment_due(full_amount, "partial_deposit")
-            return booking
-        
-    except HTTPException:
-        raise
-    except Exception as ex:
-        if isinstance(ex, APIError):
-            error_text = " ".join(str(getattr(ex, field, "") or "") for field in ("message", "details", "hint"))
-            if "one_pending_per_user" in error_text.lower():
-                raise HTTPException(status_code=409, detail=PENDING_BOOKING_DETAIL) from ex
-        logger.exception("Unable to create payment for booking")
-        raise HTTPException(status_code=500, detail="ไม่สามารถสร้างรายการชำระเงินได้ครับ") from ex
+        booking = db.rpc("create_booking_atomic", {
+            "p_user_name": user_name.strip(),
+            "p_user_phone": user_phone.strip(),
+            "p_user_id": user_id,
+            "p_room_number": room_number,
+            "p_check_in": check_in.isoformat(),
+            "p_check_out": check_out.isoformat(),
+            "p_action": action,
+        }).execute().data
+    except APIError as ex:
+        code = str(getattr(ex, "code", "") or "")
+        message = str(getattr(ex, "message", "") or "")
+        if code == "P4009":
+            detail = PENDING_BOOKING_DETAIL if "pending_booking_exists" in message else "ห้องไม่ว่างในช่วงวันที่เลือกครับ"
+            raise HTTPException(409, detail) from ex
+        if code in ("23P01", "23505"):
+            raise HTTPException(409, "ห้องไม่ว่างในช่วงวันที่เลือกครับ") from ex
+        if code == "P4001":
+            raise HTTPException(400, message) from ex
+        logger.exception("Atomic booking failed")
+        raise HTTPException(503, "ไม่สามารถสร้างรายการจองได้ในขณะนี้ครับ") from ex
+    if not isinstance(booking, dict) or not booking.get("_id"):
+        raise HTTPException(503, "ฐานข้อมูลตอบกลับรายการจองไม่ถูกต้องครับ")
+    booking["payment_due"] = payment_due(booking["full_amount"], action)
+    return booking
 
 def booked_ranges(db, room_number: str):
     today = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
     now = datetime.now(timezone.utc)
     ranges = set()
-    for table, fields in (
-        ("Customers", "check_in,check_out"),
-        ("Payments", "check_in,check_out,status,expired_at,paid_at,slip_path"),
-    ):
-        offset = 0
-        while True:
-            query = (db.table(table).select(fields).eq("room_number", room_number)
-                     .gt("check_out", today).order("check_in").order("check_out"))
-            if table == "Payments":
-                query = query.in_("status", ["paid", "pending"])
-            else:
-                query = query.not_.in_("status", ["cancel", "missing"])
-            rows = query.range(offset, offset + 499).execute().data or []
-            for row in rows:
-                if table == "Payments" and not (
-                    row["status"] == "paid" or row.get("paid_at") or row.get("slip_path")
-                    or parse_db_timestamp(row["expired_at"]) > now
-                ):
-                    continue
-                if not row.get("check_in") or not row.get("check_out"):
-                    continue
-                start = date.fromisoformat(str(row["check_in"])[:10]).isoformat()
-                end = date.fromisoformat(str(row["check_out"])[:10]).isoformat()
-                if start < end:
-                    ranges.add((start, end))
-            if len(rows) < 500:
-                break
-            offset += len(rows)
+    offset = 0
+    while True:
+        rows = (db.table("Payments")
+                .select("check_in,check_out,status,expired_at")
+                .eq("room_number", room_number).gt("check_out", today)
+                .in_("status", ["paid", "pending"])
+                .order("check_in").order("check_out")
+                .range(offset, offset + 499).execute().data or [])
+        for row in rows:
+            if row["status"] == "pending" and parse_db_timestamp(row["expired_at"]) <= now:
+                continue
+            if not row.get("check_in") or not row.get("check_out"):
+                continue
+            start = date.fromisoformat(str(row["check_in"])[:10]).isoformat()
+            end = date.fromisoformat(str(row["check_out"])[:10]).isoformat()
+            if start < end:
+                ranges.add((start, end))
+        if len(rows) < 500:
+            break
+        offset += len(rows)
     return [{"check_in": start, "check_out": end} for start, end in sorted(ranges)]
-
-def validate_stay(db, room_number, check_in, check_out):
-    today = datetime.now(timezone(timedelta(hours=7))).date()
-    if check_in < today or check_out <= check_in:
-        raise HTTPException(400, "กรุณาเลือกวันเข้าพักตั้งแต่วันนี้ และวันออกหลังวันเข้าพักครับ")
-    for stay in booked_ranges(db, room_number):
-        if check_in.isoformat() < stay["check_out"] and check_out.isoformat() > stay["check_in"]:
-            raise HTTPException(409, "ห้องไม่ว่างในช่วงวันที่เลือก กรุณาเลือกวันใหม่ครับ")
 
 def sync_booking_statuses():
     with booking_lock:

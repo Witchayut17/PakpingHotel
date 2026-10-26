@@ -8,6 +8,7 @@ class ReplyAvailablePayload(BaseModel):
 
 class ReplyMaintenancePayload(BaseModel):
     replyToken: str
+    userId: str | None = None
 
 class BookingRequest(BaseModel):
     user_name: constr(strip_whitespace=True, min_length=1, max_length=200)

@@ -147,6 +147,9 @@ function render() {
                         throw new Error(typeof detail === 'string' ? detail : 'ยกเลิกรายการไม่สำเร็จกรุณาลองอีกครั้ง');
                     }
                     await loadPayments();
+                    if (result.qr_cleanup_status === 'failed') {
+                        window.alert('ยกเลิกรายการแล้ว แต่ลบรูป QR ไม่สำเร็จ กรุณาติดต่อที่พัก');
+                    }
                 } catch (error) {
                     const note = document.createElement('span');
                     note.className = 'payment-action-error';

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://ruth-participation-insulation-identifies.trycloudflare.com';
+const API_BASE_URL = 'https://exhaust-terrorist-fees-seventh.trycloudflare.com';
 const ROOMS_PER_PAGE = 5;
 const RESERVATIONS_PER_PAGE = 2;
 const analyticsMobile = window.matchMedia('(max-width: 700px)');
@@ -6,7 +6,7 @@ const analyticsNarrow = window.matchMedia('(max-width: 480px)');
 const root = document.querySelector('#app');
 let renderBusinessAnalytics = null;
 let analyticsLoadError = '';
-import('./analytics.js?v=10').then((module) => {
+import('./analytics.js?v=11').then((module) => {
   renderBusinessAnalytics = module.renderAnalytics;
   renderAnalytics();
 }).catch((error) => {

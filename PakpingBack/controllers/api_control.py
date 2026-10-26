@@ -52,25 +52,35 @@ async def reply_available(payload: ReplyAvailablePayload):
 
 async def post_booking(payload: BookingRequest):
     try:
-        booking = create_booking(payload.user_name, payload.user_phone, payload.user_id, payload.room_number, payload.check_in, payload.check_out, payload.action)
+        booking = await run_in_threadpool(create_booking, payload.user_name, payload.user_phone, payload.user_id, payload.room_number, payload.check_in, payload.check_out, payload.action)
 
     except Exception as ex:
         logger.exception("Booking failed:name=%s phone=%s userId=%s room=%s check_in=%s check_out=%s action=%s",payload.user_name, payload.user_phone, payload.user_id, payload.room_number, payload.check_in, payload.check_out, payload.action)
         if isinstance(ex, HTTPException):
             raise
         raise HTTPException(status_code=500, detail="ไม่สามารถสร้างรายการจองได้ครับ") from ex
-    qr_url = make_qr_url(booking)
+    try:
+        qr_url = await run_in_threadpool(make_qr_url, booking)
+    except Exception as ex:
+        logger.exception("Unable to create QR for booking %s", booking.get("_id"))
+        try:
+            rolled_back = await run_in_threadpool(api_repo.rollback_booking_without_qr, booking)
+        except Exception:
+            logger.exception("Unable to roll back booking without QR: %s", booking.get("_id"))
+            rolled_back = False
+        if not rolled_back:
+            raise HTTPException(502, detail={
+                "booking": booking,
+                "message": "สร้างรายการแล้วแต่ QR ไม่พร้อม กรุณาติดต่อที่พักก่อนจองซ้ำครับ",
+            }) from ex
+        raise HTTPException(503, detail={
+            "code": "qr_generation_failed",
+            "message": "สร้าง QR ไม่สำเร็จและยกเลิกรายการแล้ว กรุณาลองจองอีกครั้งครับ",
+        }) from ex
     return {"booking": booking, "qr_url": qr_url}
 
 async def cancel_booking(payload: CancelBookingRequest):
-    result = await run_in_threadpool(api_repo.cancel_booking, payload.user_id, payload.booking_id)
-    if result["status"] == "cancelled":
-        try:
-            pass
-        except Exception:
-            logger.exception("Booking cancelled but LINE notification failed")
-            result["notification_status"] = "failed"
-    return result
+    return await run_in_threadpool(api_repo.cancel_booking, payload.user_id, payload.booking_id)
 
 async def list_rooms():
     return api_repo.list_rooms()

@@ -342,6 +342,11 @@
                 }
             }
 
+            else if (result.detail?.code === 'qr_generation_failed') {
+                get('booking-status').textContent = result.detail.message
+                window.dispatchEvent(new Event('pakping:payments-changed'))
+            }
+
             else if (response.status >= 500) {
                 throw new Error('ไม่ทราบการจองนี้')
             }

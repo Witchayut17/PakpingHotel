@@ -150,10 +150,12 @@ async def reply_available_rooms(payload):
 
     if selected_date:
         iso = selected_date.isoformat()
-        booked = (db.table("Customers").select("room_number").lte("check_in", iso).gt("check_out", iso).execute())
-        booked_rows = booked.data or []
-        booked_numbers = {row["room_number"] for row in booked_rows}
-        Rooms = [r for r in Rooms if r["room_number"] not in booked_numbers]
+        # Use the same active-payment rules as the website availability endpoint.
+        from repository.api_repo import booked_ranges
+        Rooms = [room for room in Rooms if not any(
+            stay["check_in"] <= iso < stay["check_out"]
+            for stay in booked_ranges(db, room["room_number"])
+        )]
     
     Rooms.sort(key=lambda room: (room["room_number"][0].upper(), int(room["room_number"][1:])))
 
@@ -192,9 +194,10 @@ async def reply_available_rooms(payload):
     response.raise_for_status()
     return {"success": True}
 
-async def reply_maintenance_rooms(payload:str):
+async def reply_maintenance_rooms(payload):
     result = db.table("Rooms").select("*").in_("status", ["Maintenance"]).execute()
-    userId = payload.get("userId")
+    userId = payload.get("userId") if isinstance(payload, dict) else payload.userId
+    reply_token = payload.get("replyToken") if isinstance(payload, dict) else payload.replyToken
     Rooms = result.data
     Rooms.sort(key=lambda room: (room["room_number"][0].upper(), int(room["room_number"][1:])))
     if not Rooms:
@@ -215,16 +218,15 @@ async def reply_maintenance_rooms(payload:str):
                 ],
             },
         } for start in range(0, len(Rooms), 12)]
+    if not reply_token and not userId:
+        raise HTTPException(status_code=422, detail="กรุณาระบุ replyToken หรือ userId ครับ")
     response = await asyncio.to_thread(
         requests.post,
-        "https://api.line.me/v2/bot/message/push",
+        "https://api.line.me/v2/bot/message/push" if userId else "https://api.line.me/v2/bot/message/reply",
         headers={
             "Authorization": f"Bearer {line_channel_access_token_housekeeper}",
         },
-        json={
-            "to": userId,
-            "messages": messages,
-        },
+        json={"to": userId, "messages": messages} if userId else {"replyToken": reply_token, "messages": messages},
         timeout=10,
     )
     response.raise_for_status()
