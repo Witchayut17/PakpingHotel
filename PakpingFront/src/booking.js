@@ -179,9 +179,9 @@
         const timer = setTimeout(() => controller.abort(), 12000)
         try {
             const response = await fetch(`${API}/room_availability?room_number=${encodeURIComponent(get('booking-room').value)}`, { signal: controller.signal, cache: 'no-store' })
-            if (!response.ok) throw new Error('Availability unavailable')
+            if (!response.ok) throw new Error('ไม่สามารถตรวจสอบวันว่างได้')
             const data = await response.json()
-            if (!Array.isArray(data.booked_ranges) || data.booked_ranges.some(stay => !/^\d{4}-\d{2}-\d{2}$/.test(stay.check_in) || !/^\d{4}-\d{2}-\d{2}$/.test(stay.check_out) || stay.check_out <= stay.check_in)) throw new Error('Invalid availability')
+            if (!Array.isArray(data.booked_ranges) || data.booked_ranges.some(stay => !/^\d{4}-\d{2}-\d{2}$/.test(stay.check_in) || !/^\d{4}-\d{2}-\d{2}$/.test(stay.check_out) || stay.check_out <= stay.check_in)) throw new Error('ข้อมูลวันว่างไม่ถูกต้อง')
             if (version !== revision) return false
             ranges = data.booked_ranges
             ready = true
@@ -248,7 +248,7 @@
             const image = await new Promise((resolve, reject) => {
                 const reader = new FileReader()
                 reader.onload = () => resolve(reader.result)
-                reader.onerror = () => reject(new Error('read failed'))
+                reader.onerror = () => reject(new Error('อ่านไฟล์สลิปไม่สำเร็จ'))
                 reader.readAsDataURL(file)
             })
             const response = await fetch(`${API}/post_slip`, {

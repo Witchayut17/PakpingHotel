@@ -5,10 +5,10 @@ async def process_n8n_event(payload: dict) -> dict:
     try:
         message = payload.get("message") or {}
         if not isinstance(message, dict):
-            raise HTTPException(status_code=422, detail="message ต้องเป็นข้อมูล JSON object ครับ")
+            raise HTTPException(status_code=422, detail="ข้อมูลข้อความต้องเป็นออบเจ็กต์แบบเจสันครับ")
         message_type = message.get("type") or payload.get("messageType") or payload.get("type")
         if message_type == "image":
-            return {"status": "ignored", "reason": "Slip uploads are handled by LIFF"}
+            return {"status": "ignored", "reason": "ระบบ LIFF เป็นผู้จัดการรูปสลิปแล้ว"}
         return await check_input(payload)
     except HTTPException:
         raise

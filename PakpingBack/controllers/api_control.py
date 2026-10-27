@@ -1,25 +1,72 @@
 import logging
 from starlette.concurrency import run_in_threadpool
-from fastapi import Body, HTTPException, Query
+from fastapi import Body, Depends, Header, HTTPException, Query
 from repository import api_repo
-from models.api_model import ReplyAvailablePayload, BookingRequest, SlipRequest, CancelBookingRequest, UpdateUserStatusRequest, ReservationRoomActionRequest, UserReply, WorkerData, ReplyMaintenancePayload, RoomStatus
+from models.api_model import ReplyAvailablePayload, BookingRequest, SlipRequest, CancelBookingRequest, RefundRequest, CompleteRefundRequest, UpdateUserStatusRequest, ReservationRoomActionRequest, UserReply, WorkerData, ReplyMaintenancePayload, RoomStatus, DashboardLogin, DashboardUserCreate, DashboardUserUpdate, DashboardPasswordChange
 from storge.db import get_db
 from services.reply_flexroom import reply_available_rooms, send_approval_message, reply_maintenance_rooms
 from repository.api_repo import create_booking, make_qr_url, worker_data_input, set_room_status
 from services.n8n_event import process_n8n_event
+from utils.dashboard_auth import ROLES, create_session, current_worker, revoke_session, verify_owner_master_password, verify_password
+from utils import dashboard_users
 
 db = get_db()
 logger = logging.getLogger(__name__)
+
+def _login_worker(payload: DashboardLogin) -> dict:
+    rows = (db.table("Worker").select("id,worker_name,role,phone,password")
+            .eq("worker_name", payload.worker_name).in_("role", sorted(ROLES))
+            .limit(2).execute().data or [])
+    if len(rows) != 1:
+        raise HTTPException(status_code=401, detail="ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง")
+    worker = rows[0]
+    if not (verify_password(payload.password, worker.get("password"))
+            or verify_owner_master_password(payload.password, worker["role"])):
+        raise HTTPException(status_code=401, detail="ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง")
+    return {"token": create_session(worker), "id": worker["id"], "name": worker["worker_name"], "role": worker["role"], "phone": worker.get("phone") or ""}
+
+async def dashboard_login(payload: DashboardLogin) -> dict:
+    return await run_in_threadpool(_login_worker, payload)
+
+async def dashboard_me(worker: dict = Depends(current_worker)) -> dict:
+    return {"id": worker["id"], "name": worker["worker_name"], "role": worker["role"], "phone": worker.get("phone") or ""}
+
+async def dashboard_logout(authorization: str = Header(...), worker: dict = Depends(current_worker)) -> dict:
+    revoke_session(authorization[7:])
+    return {"status": "Success"}
+
+async def dashboard_users_list(worker: dict = Depends(current_worker)) -> dict:
+    return await run_in_threadpool(dashboard_users.list_users, worker)
+
+async def dashboard_users_create(payload: DashboardUserCreate, worker: dict = Depends(current_worker)) -> dict:
+    return await run_in_threadpool(dashboard_users.create_user, payload, worker)
+
+async def dashboard_users_update(worker_id: str, payload: DashboardUserUpdate, worker: dict = Depends(current_worker)) -> dict:
+    return await run_in_threadpool(dashboard_users.update_user, worker_id, payload, worker)
+
+async def dashboard_users_reset_password(worker_id: str, worker: dict = Depends(current_worker)) -> dict:
+    return await run_in_threadpool(dashboard_users.reset_user_password, worker_id, worker)
+
+async def dashboard_users_delete(worker_id: str, worker: dict = Depends(current_worker)) -> dict:
+    return await run_in_threadpool(dashboard_users.delete_user, worker_id, worker)
+
+async def dashboard_change_password(payload: DashboardPasswordChange, worker: dict = Depends(current_worker)) -> dict:
+    return await run_in_threadpool(dashboard_users.change_password, payload, worker)
+
+async def dashboard_overview_data() -> dict:
+    result = await run_in_threadpool(api_repo.list_reservations)
+    fields = ("customer_name", "room_number", "check_in", "check_out", "amount","full_amount", "payment_method", "status", "arrive_at", "initial_paid_at")
+    return {"records": [{**{field: row.get(field) for field in fields},"is_mock": str(row.get("line_user_id") or "").startswith("MOCK-")}for row in result["records"]]}
 
 async def received_n8n(payload: dict = Body(...)) -> dict:
     if "body" in payload:
         payload = payload["body"]
         if not isinstance(payload, dict):
-            raise HTTPException(status_code=422, detail="body ต้องเป็นข้อมูล JSON object ครับ")
+            raise HTTPException(status_code=422, detail="ข้อมูลคำขอต้องเป็นข้อมูลแบบเจสันชนิดออบเจ็กต์ครับ")
     if "events" in payload:
         events = payload["events"]
         if not isinstance(events, list) or any(not isinstance(event, dict) for event in events):
-            raise HTTPException(status_code=422, detail="events ต้องเป็นรายการ JSON object ครับ")
+            raise HTTPException(status_code=422, detail="รายการเหตุการณ์ต้องเป็นรายการออบเจ็กต์แบบเจสันครับ")
         results = []
         for event in events:
             results.append(await process_n8n_event({"destination": payload.get("destination"), **event}))
@@ -71,16 +118,28 @@ async def post_booking(payload: BookingRequest):
         if not rolled_back:
             raise HTTPException(502, detail={
                 "booking": booking,
-                "message": "สร้างรายการแล้วแต่ QR ไม่พร้อม กรุณาติดต่อที่พักก่อนจองซ้ำครับ",
+                "message": "สร้างรายการแล้วแต่คิวอาร์โค้ดยังไม่พร้อม กรุณาติดต่อที่พักก่อนจองซ้ำครับ",
             }) from ex
         raise HTTPException(503, detail={
             "code": "qr_generation_failed",
-            "message": "สร้าง QR ไม่สำเร็จและยกเลิกรายการแล้ว กรุณาลองจองอีกครั้งครับ",
+            "message": "สร้างคิวอาร์โค้ดไม่สำเร็จและยกเลิกรายการแล้ว กรุณาลองจองอีกครั้งครับ",
         }) from ex
     return {"booking": booking, "qr_url": qr_url}
 
 async def cancel_booking(payload: CancelBookingRequest):
     return await run_in_threadpool(api_repo.cancel_booking, payload.user_id, payload.booking_id)
+
+async def request_refund(payload: RefundRequest):
+    return await run_in_threadpool(api_repo.request_refund, payload.user_id, payload.booking_id,
+                                   payload.refund_bank, payload.refund_account)
+
+async def complete_refund(payload: CompleteRefundRequest):
+    return await run_in_threadpool(api_repo.complete_refund, payload.booking_id)
+
+async def cancel_approved_deposit(payload: CancelBookingRequest):
+    if not payload.booking_id:
+        raise HTTPException(status_code=422, detail="กรุณาระบุรายการที่ต้องการยกเลิกครับ")
+    return await run_in_threadpool(api_repo.cancel_approved_deposit, payload.user_id, payload.booking_id)
 
 async def list_rooms():
     return api_repo.list_rooms()
@@ -125,7 +184,7 @@ async def worker_reply(payload: dict = Body(...)) -> dict:
     try:
         userId = payload.get("userId")
         if not isinstance(userId, str) or not userId.strip():
-            raise HTTPException(status_code=422, detail="กรุณาระบุ userId ครับ")
+            raise HTTPException(status_code=422, detail="กรุณาระบุรหัสผู้ใช้ครับ")
 
         def find_worker():
             return (db.table("Worker").select("line_user_id")
@@ -146,7 +205,7 @@ async def worker_reply(payload: dict = Body(...)) -> dict:
         raise HTTPException(status_code=500, detail="ไม่สามารถตรวจสอบข้อมูลพนักงานได้ครับ") from ex
 
 async def worker_insert(payload: WorkerData):
-    return await run_in_threadpool(api_repo.insert_worker_data, payload.userId, payload.worker_name)
+    return await run_in_threadpool(api_repo.insert_worker_data, payload.userId, payload.worker_name, payload.phone)
 
 async def reply_maintenance(payload: ReplyMaintenancePayload):
     try:
@@ -158,8 +217,10 @@ async def reply_maintenance(payload: ReplyMaintenancePayload):
 
 async def set_room_status_by_number(payload: RoomStatus):
     try:
-        await run_in_threadpool(set_room_status, payload.room_number, payload.status)
+        await run_in_threadpool(set_room_status, payload.room_number, payload.status, payload.userId)
         return {"status": "Success"}
+    except HTTPException:
+        raise
     except Exception as ex:
         logger.exception("Unable to set room status")
         raise HTTPException(status_code=500, detail="ไม่สามารถเปลี่ยนสถานะห้องได้ครับ") from ex

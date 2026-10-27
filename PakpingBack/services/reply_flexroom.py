@@ -219,7 +219,7 @@ async def reply_maintenance_rooms(payload):
             },
         } for start in range(0, len(Rooms), 12)]
     if not reply_token and not userId:
-        raise HTTPException(status_code=422, detail="กรุณาระบุ replyToken หรือ userId ครับ")
+        raise HTTPException(status_code=422, detail="กรุณาระบุโทเค็นสำหรับตอบกลับหรือรหัสผู้ใช้ครับ")
     response = await asyncio.to_thread(
         requests.post,
         "https://api.line.me/v2/bot/message/push" if userId else "https://api.line.me/v2/bot/message/reply",

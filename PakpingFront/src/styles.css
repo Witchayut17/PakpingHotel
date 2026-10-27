@@ -737,6 +737,54 @@ h2 {
     font-size: 13px;
 }
 
+.payment-action small.payment-action-note {
+    display: block;
+    margin-top: 6px;
+}
+
+#refund-dialog {
+    width: min(440px, calc(100% - 32px));
+    padding: 32px;
+    border-radius: 16px;
+}
+
+#refund-dialog h2 {
+    margin: 0 48px 10px 0;
+}
+
+#refund-summary {
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+#refund-form {
+    display: grid;
+    gap: 12px;
+}
+
+#refund-form label {
+    font-weight: 600;
+}
+
+#refund-form select,
+#refund-form input {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: white;
+    color: var(--ink);
+    font: inherit;
+}
+
+#refund-form-status {
+    min-height: 1.4em;
+    margin: 0;
+    color: #8b3d35;
+    font-size: 13px;
+}
+
 .payment-status {
     display: inline-flex;
     align-items: center;
@@ -773,6 +821,16 @@ h2 {
 }
 
 .payment-status.ready {
+    background: #e1efe8;
+    color: #236044;
+}
+
+.payment-status.refund_pending {
+    background: #fff0d8;
+    color: #805312;
+}
+
+.payment-status.refunded {
     background: #e1efe8;
     color: #236044;
 }
@@ -1296,18 +1354,20 @@ dialog::backdrop {
 .booking-slip-form {
     display: grid;
     gap: 12px;
-    max-width: 360px;
+    width: min(100%, 360px);
     margin: 24px auto 0;
-    text-align: left;
+    justify-items: center;
+    text-align: center;
 }
 
 .booking-slip-form input[type="file"] {
-    width: 100%;
+    width: min(100%, 310px);
     min-width: 0;
+    margin-inline: auto;
 }
 
 .booking-slip-form button {
-    justify-self: start;
+    justify-self: center;
 }
 
 @media(max-width:480px) {
