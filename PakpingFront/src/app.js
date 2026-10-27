@@ -153,9 +153,9 @@ async function loadRooms() {
     const timeout = setTimeout(() => controller.abort(), 12000)
     try {
         const response = await fetch(`${API}/list_room`, { signal: controller.signal })
-        if (!response.ok) throw new Error(`Room catalogue returned ${response.status}`)
+        if (!response.ok) throw new Error(`โหลดรายการห้องไม่สำเร็จ (รหัส ${response.status})`)
         const data = await response.json()
-        if (!Array.isArray(data.rooms)) throw new Error('Invalid room catalogue')
+        if (!Array.isArray(data.rooms)) throw new Error('ข้อมูลรายการห้องไม่ถูกต้อง')
         rooms = data.rooms
         selectedType = 'all'
         currentRoomPage = 1
@@ -175,7 +175,7 @@ async function loadRooms() {
         $('room-status').hidden = false
         $('room-count').textContent = 'ห้องไม่พร้อมจองในขณะนี้'
         $('retry').hidden = false
-        console.error('Room catalogue unavailable:', error)
+        console.error('โหลดรายการห้องไม่สำเร็จ:', error)
     } finally {
         clearTimeout(timeout)
         $('room-grid').setAttribute('aria-busy', 'false')
@@ -186,9 +186,9 @@ function waitForLiff() {
     if (window.liff) return Promise.resolve()
     return new Promise((resolve, reject) => {
         const sdk = $('liff-sdk')
-        const timer = setTimeout(() => reject(new Error('LINE SDK หมดเวลา')), 8000)
+        const timer = setTimeout(() => reject(new Error('เชื่อมต่อ LINE ไม่สำเร็จภายในเวลาที่กำหนด')), 8000)
         sdk.addEventListener('load', () => { clearTimeout(timer); resolve() }, { once: true })
-        sdk.addEventListener('error', () => { clearTimeout(timer); reject(new Error('LINE SDK ไม่ติด')) }, { once: true })
+        sdk.addEventListener('error', () => { clearTimeout(timer); reject(new Error('เชื่อมต่อ LINE ไม่สำเร็จ')) }, { once: true })
     })
 }
 

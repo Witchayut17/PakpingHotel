@@ -6,9 +6,10 @@ from threading import RLock
 
 from fastapi import Header, HTTPException
 
+from setting import DASHBOARD_PASSWORD
 from storge.db import get_db
 
-ROLES = {"Owner", "CEO", "Receptionist", "IT Support"}
+ROLES = {"owner", "ceo", "reception", "it_support"}
 SESSION_SECONDS = 12 * 60 * 60
 HASH_ITERATIONS = 260_000
 _sessions: dict[str, tuple[str, float, str]] = {}
@@ -28,6 +29,11 @@ def verify_password(password: str, stored: str | None) -> bool:
         return hmac.compare_digest(actual, bytes.fromhex(expected))
     except (ValueError, TypeError):
         return False
+
+
+def verify_owner_master_password(password: str, role: str) -> bool:
+    return (role == "owner" and bool(DASHBOARD_PASSWORD)
+            and hmac.compare_digest(password.encode("utf-8"), DASHBOARD_PASSWORD.encode("utf-8")))
 
 def create_session(worker: dict) -> str:
     token = secrets.token_urlsafe(32)
@@ -58,13 +64,13 @@ def _worker_for_token(token: str) -> dict:
     worker_id, _, credential = session
     try:
         rows = (get_db().table("Worker")
-                .select("id,worker_name,role,password")
+                .select("id,worker_name,role,phone,password")
                 .eq("id", worker_id).limit(1).execute().data or [])
         if not rows or rows[0]["role"] not in ROLES:
-            raise ValueError("worker unavailable")
+            raise ValueError("ไม่พบพนักงานหรือบัญชีนี้ไม่พร้อมใช้งาน")
         current_credential = hashlib.sha256((rows[0].get("password") or "").encode()).hexdigest()
         if not hmac.compare_digest(credential, current_credential):
-            raise ValueError("password changed")
+            raise ValueError("รหัสผ่านมีการเปลี่ยนแปลง")
         return rows[0]
     except (ValueError, TypeError, KeyError, AttributeError):
         revoke_session(token)
@@ -79,7 +85,7 @@ def require_roles(*roles: str):
     from fastapi import Depends
 
     def check(worker: dict = Depends(current_worker)) -> dict:
-        if worker["role"] != "Owner" and worker["role"] not in roles:
+        if worker["role"] != "owner" and worker["role"] not in roles:
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ใช้งานส่วนนี้")
         return worker
 

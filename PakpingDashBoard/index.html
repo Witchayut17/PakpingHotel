@@ -6,41 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#334c40">
   <meta name="description" content="Pakping hotel management dashboard">
-  <title>Pakping Hotel · Staff Desk</title>
+  <title>Pakping Hotel Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=6">
-  <link rel="stylesheet" href="./front-theme.css?v=28">
+  <link rel="stylesheet" href="./styles.css?v=7">
+  <link rel="stylesheet" href="./front-theme.css?v=30">
 </head>
 
 <body>
   <div id="app">
-
-    <section id="register-screen" class="auth-screen" aria-labelledby="register-title">
-      <form id="register-form" class="auth-card">
-        <span class="brand-mark" aria-hidden="true">p.</span>
-        <p class="auth-eyebrow">PAKPING STAFF DESK</p>
-        <h1 id="register-title">สมัครบัญชี Dashboard</h1>
-        <label for="register-name">ชื่อพนักงาน</label>
-        <input id="register-name" name="name" maxlength="200" autocomplete="name" required>
-        <label for="register-password">รหัสผ่าน</label>
-        <input id="register-password" name="password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required>
-        <label for="register-role">Role</label>
-        <select id="register-role" name="role" required>
-          <option value="IT Support">IT Support</option>
-          <option value="CEO">CEO</option>
-          <option value="Receptionist">Receptionist</option>
-          <option value="Owner">Owner</option>
-        </select>
-        <p id="register-error" class="auth-error" role="alert" hidden></p>
-        <div id="register-result" class="register-result" role="status" hidden></div>
-        <button class="button primary" type="submit">สร้างบัญชี</button>
-        <button class="auth-switch" type="button" data-auth-view="login">มีบัญชีแล้ว? เข้าสู่ระบบ</button>
-      </form>
-    </section>
 
     <section id="login-screen" class="auth-screen" aria-labelledby="login-title" hidden>
       <form id="login-form" class="auth-card">
@@ -53,8 +30,8 @@
         <label for="login-password">รหัสผ่าน</label>
         <input id="login-password" name="password" type="password" autocomplete="current-password" required>
         <p id="login-error" class="auth-error" role="alert" hidden></p>
+        <p id="login-status" role="status" hidden></p>
         <button class="button primary" type="submit">เข้าสู่ระบบ</button>
-        <button class="auth-switch" type="button" data-auth-view="register">สร้างบัญชีใหม่</button>
       </form>
     </section>
 
@@ -67,7 +44,7 @@
           <button id="reservation-tab" class="dashboard-tab" type="button" role="tab" aria-controls="reservation-panel" aria-selected="false" tabindex="-1" data-tab="reservation">Reservation</button>
           <button id="support-tab" class="dashboard-tab" type="button" role="tab" aria-controls="support-panel" aria-selected="false" tabindex="-1" data-tab="support">Support</button>
         </div>
-        <div class="account-actions"><span id="account-name"></span><button id="logout-button" class="button small" type="button">ออกจากระบบ</button></div>
+        <div class="account-actions"><span id="account-name"></span><button id="profile-button" class="button small" type="button">โปรไฟล์</button><button id="logout-button" class="button small" type="button">ออกจากระบบ</button></div>
       </header>
 
       <div class="main-shell">
@@ -147,6 +124,8 @@
                   <label><input type="checkbox" data-status-filter="pending" checked> ยังไม่จ่าย</label>
                   <label><input type="checkbox" data-status-filter="paid" checked> รอตรวจสอบ</label>
                   <label><input type="checkbox" data-status-filter="ready" checked> อนุมัติแล้ว</label>
+                  <label><input type="checkbox" data-status-filter="refund_pending" checked> คืนเงิน</label>
+                  <label><input type="checkbox" data-status-filter="refunded" checked> คืนเงินแล้ว</label>
                   <label><input type="checkbox" data-status-filter="inhouse" checked> กำลังเข้าพัก</label>
                   <label><input type="checkbox" data-status-filter="decline" checked> ปฏิเสธแล้ว</label>
                   <label><input type="checkbox" data-status-filter="expired" checked> หมดอายุ</label>
@@ -165,7 +144,7 @@
 
           <section id="history" class="card reservations-card" aria-labelledby="history-title">
             <div class="card-heading">
-              <div><h2 id="history-title">Reservation ที่อนุมัติแล้ว</h2><p>รายการ ready และ inhouse สำหรับเช็คอินและเช็คเอาต์</p></div>
+              <div><h2 id="history-title">Reservation ที่อนุมัติแล้ว</h2><p>รายการเข้าพักและรายการคืนเงิน</p></div>
             </div>
             <div class="reservation-controls">
               <button id="sort-approved-status" class="button small" type="button" data-action="sort-approved-status">สถานะ: อนุมัติแล้วก่อน</button>
@@ -180,7 +159,30 @@
 
           <div id="support-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="support-tab" hidden>
             <section class="card support-card" aria-labelledby="support-title">
-              <div class="card-heading"><div><h2 id="support-title">Support</h2><p>ส่วนจัดการ Support กำลังพัฒนา</p></div></div>
+              <div class="card-heading"><div><h2 id="support-title">Support Section</h2><p>จัดการบัญชีพนักงาน Dashboard</p></div></div>
+              <form id="support-user-form" class="support-form">
+                <input type="hidden" name="worker_id">
+                <label>ชื่อพนักงาน<input name="name" maxlength="200" required autocomplete="off"></label>
+                <label>เบอร์โทร<input name="phone" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" required autocomplete="off"></label>
+                <label>บทบาท<select name="role" required><option value="it_support">IT Support</option><option value="ceo">CEO</option><option value="reception">Receptionist</option><option value="owner">Owner</option></select></label>
+                <div class="support-form-actions"><button id="support-save" class="button primary" type="submit">สร้างบัญชี</button><button id="support-cancel" class="button small" type="button" hidden>ยกเลิกการแก้ไข</button></div>
+              </form>
+              <p id="support-error" class="auth-error" role="alert" hidden></p>
+              <div class="support-list-heading"><h3>บัญชีพนักงาน</h3><button id="support-refresh" class="button small" type="button">รีเฟรช</button></div>
+              <div id="support-users" aria-live="polite"></div>
+            </section>
+          </div>
+
+          <div id="profile-panel" class="dashboard-panel" hidden>
+            <section class="card support-card" aria-labelledby="profile-title">
+              <div class="card-heading"><div><h2 id="profile-title">โปรไฟล์ของฉัน</h2><p>ข้อมูลบัญชีและการเปลี่ยนรหัสผ่าน</p></div><button id="profile-close" class="button small" type="button">กลับ</button></div>
+              <dl class="profile-details"><div><dt>ชื่อพนักงาน</dt><dd id="profile-name"></dd></div><div><dt>บทบาท</dt><dd id="profile-role"></dd></div><div><dt>เบอร์โทร</dt><dd id="profile-phone"></dd></div></dl>
+              <form id="profile-password-form" class="support-form">
+                <label>รหัสผ่านปัจจุบัน<input name="current_password" type="password" autocomplete="current-password" required></label>
+                <label>รหัสผ่านใหม่<input name="new_password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></label>
+                <div class="support-form-actions"><button class="button primary" type="submit">เปลี่ยนรหัสผ่าน</button></div>
+              </form>
+              <p id="profile-error" class="auth-error" role="alert" hidden></p>
             </section>
           </div>
 
@@ -192,7 +194,7 @@
     </div>
 
   </div>
-  <script type="module" src="./app.js?v=46"></script>
+  <script type="module" src="./app.js?v=52"></script>
 </body>
 
 </html>

@@ -10,7 +10,7 @@ def get_worker(user_id: str) -> dict:
         .execute().data or []
     )
     if not rows:
-        raise HTTPException(status_code=403, detail="ไม่พบพนักงานสำหรับ userId นี้")
+        raise HTTPException(status_code=403, detail="ไม่พบพนักงานสำหรับรหัสผู้ใช้นี้")
     return rows[0]
 
 def log_worker_action(worker: dict, description: str) -> None:

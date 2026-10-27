@@ -13,12 +13,12 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=16">
+    <link rel="stylesheet" href="styles.css?v=19">
     <script async id="liff-sdk" src="https://static.line-scdn.net/liff/edge/versions/2.31.1/sdk.js"></script>
     <script defer src="pagination.js?v=2"></script>
-    <script defer src="app.js?v=5"></script>
-    <script defer src="booking.js?v=9"></script>
-    <script defer src="payments.js?v=16"></script>
+    <script defer src="app.js?v=6"></script>
+    <script defer src="booking.js?v=10"></script>
+    <script defer src="payments.js?v=21"></script>
 </head>
 
 <body>
@@ -127,6 +127,38 @@
             </p><button class="button button-green" id="open-booking">จองห้องนี้<span
                     aria-hidden="true"></span></button>
         </div>
+    </dialog>
+
+    <dialog id="refund-dialog" aria-labelledby="refund-title">
+        <button type="button" class="dialog-close" id="refund-close" aria-label="ปิดฟอร์มขอคืนเงิน">×</button>
+        <h2 id="refund-title">ขอคืนเงิน</h2>
+        <p id="refund-summary"></p>
+        <form id="refund-form">
+            <label for="refund-bank">ธนาคารที่ให้โอนคืน หรือพร้อมเพย์</label>
+            <select id="refund-bank" required>
+                <option value="">เลือกธนาคารหรือพร้อมเพย์</option>
+                <option value="promptpay">พร้อมเพย์</option>
+                <option value="BBL">ธนาคารกรุงเทพ</option>
+                <option value="KBANK">ธนาคารกสิกรไทย</option>
+                <option value="KTB">ธนาคารกรุงไทย</option>
+                <option value="SCB">ธนาคารไทยพาณิชย์</option>
+                <option value="BAY">ธนาคารกรุงศรีอยุธยา</option>
+                <option value="TTB">ธนาคารทหารไทยธนชาต</option>
+                <option value="GSB">ธนาคารออมสิน</option>
+                <option value="BAAC">ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร</option>
+                <option value="UOB">ธนาคารยูโอบี</option>
+                <option value="CIMBT">ธนาคารซีไอเอ็มบี ไทย</option>
+                <option value="KKP">ธนาคารเกียรตินาคินภัทร</option>
+                <option value="TISCO">ธนาคารทิสโก้</option>
+                <option value="LH">ธนาคารแลนด์ แอนด์ เฮ้าส์</option>
+                <option value="ICBC">ธนาคารไอซีบีซี (ไทย)</option>
+                <option value="GHB">ธนาคารอาคารสงเคราะห์</option>
+            </select>
+            <label for="refund-account">เลขที่บัญชี หรือหมายเลขพร้อมเพย์</label>
+            <input id="refund-account" type="text" inputmode="numeric" pattern="[0-9]{10,15}" maxlength="15" autocomplete="off" required>
+            <p id="refund-form-status" role="alert" aria-live="polite"></p>
+            <button id="refund-submit" type="submit" class="button button-green">ส่งคำขอคืนเงิน</button>
+        </form>
     </dialog>
 
     <dialog id="booking-dialog" aria-labelledby="booking-title">

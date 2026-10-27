@@ -1,18 +1,21 @@
 const API_BASE_URL = 'https://spoke-kevin-posters-cottages.trycloudflare.com';
 const ROOMS_PER_PAGE = 5;
-const RESERVATIONS_PER_PAGE = 2;
+const reservationMobile = window.matchMedia('(max-width: 900px)');
+const reservationsPerPage = () => reservationMobile.matches ? 2 : 5;
 const analyticsMobile = window.matchMedia('(max-width: 700px)');
 const analyticsNarrow = window.matchMedia('(max-width: 480px)');
 const root = document.querySelector('#app');
 let sessionToken = sessionStorage.getItem('pakping_dashboard_token') || '';
 let account = null;
+let supportUsers = [];
+let supportLoading = false;
 let renderBusinessAnalytics = null;
 let analyticsLoadError = '';
 import('./analytics.js?v=12').then((module) => {
   renderBusinessAnalytics = module.renderAnalytics;
   renderAnalytics();
 }).catch((error) => {
-  console.error('Unable to load business analytics', error);
+  console.error('โหลดสถิติธุรกิจไม่สำเร็จ', error);
   analyticsLoadError = 'โหลดส่วนสถิติธุรกิจไม่สำเร็จ กรุณารีเฟรชหน้า';
   renderAnalytics();
 });
@@ -23,10 +26,11 @@ const state = {
   rooms: [], roomsLoading: false, roomsLoaded: false, roomsError: '',
   visibleRoomStatuses: new Set(['Available', 'Busy', 'Maintenance', 'Booked']),
   slipUrl: '', slipError: '', slipLoading: false,
+  refundBookingId: null, refundConfirmed: false,
   declineDescription: '', busy: false, toast: '', sortNewest: true,
   roomSearch: '', roomPage: 1, reservationSearch: '', pendingPage: 1,
   approvedSearch: '', approvedPage: 1, approvedStatusFirst: 'ready',
-  visibleStatuses: new Set(['pending', 'paid', 'ready', 'inhouse', 'decline', 'expired', 'cancel', 'missing', 'success']),
+  visibleStatuses: new Set(['pending', 'paid', 'ready', 'refund_pending', 'refunded', 'inhouse', 'decline', 'expired', 'cancel', 'missing', 'success']),
   analyticsRange: 'today', analyticsForecastDays: 7,
   analyticsSummaryPage: 1, analyticsChartPage: 1,
   balanceConfirmed: new Set(),
@@ -36,10 +40,18 @@ const statusLabels = {
   pending: 'ยังไม่จ่าย', paid: 'จ่ายแล้ว', ready: 'อนุมัติแล้ว', inhouse: 'กำลังเข้าพัก', expired: 'หมดอายุ',
   decline: 'ปฏิเสธแล้ว', cancel: 'ยกเลิกแล้ว', missing: 'ไม่เข้าพัก',
   success: 'เช็คเอาต์แล้ว',
+  refund_pending: 'คืนเงิน', refunded: 'คืนเงินแล้ว',
 };
 
 const roomStatusLabels = {
   Available: 'Available', Booked: 'Booked', Busy: 'Busy', Maintenance: 'Maintenance',
+};
+
+const refundBankLabels = {
+  promptpay: 'พร้อมเพย์', BBL: 'กรุงเทพ', KBANK: 'กสิกรไทย', KTB: 'กรุงไทย',
+  SCB: 'ไทยพาณิชย์', BAY: 'กรุงศรีอยุธยา', TTB: 'ทหารไทยธนชาต', GSB: 'ออมสิน',
+  BAAC: 'ธ.ก.ส.', UOB: 'ยูโอบี', CIMBT: 'ซีไอเอ็มบี ไทย', KKP: 'เกียรตินาคินภัทร',
+  TISCO: 'ทิสโก้', LH: 'แลนด์ แอนด์ เฮ้าส์', ICBC: 'ไอซีบีซี (ไทย)', GHB: 'อาคารสงเคราะห์',
 };
 
 const money = new Intl.NumberFormat('th-TH', {
@@ -132,7 +144,7 @@ function renderAnalytics() {
     renderBusinessAnalytics(state, root, { esc, money, number });
     applyAnalyticsPagination();
   } catch (error) {
-    console.error('Unable to render business analytics', error);
+    console.error('แสดงสถิติธุรกิจไม่สำเร็จ', error);
     root.querySelector('#analytics-content').innerHTML = '<div class="empty" role="alert"><p>แสดงสถิติธุรกิจไม่สำเร็จ กรุณารีเฟรชหน้า</p></div>';
   }
 }
@@ -181,29 +193,35 @@ async function request(path, options) {
   const sentToken = sessionToken;
   const headers = new Headers(options?.headers || {});
   if (sentToken) headers.set('Authorization', `Bearer ${sentToken}`);
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  } catch {
+    throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาลองอีกครั้ง');
+  }
   const body = await response.json().catch(() => ({}));
-  if (response.status === 401 && path !== '/dashboard/login' && sentToken === sessionToken) showAuth('login');
+  if (response.status === 401 && path !== '/dashboard/login' && sentToken === sessionToken) showAuth();
   if (!response.ok) throw new Error(typeof body.detail === 'string'
-    ? body.detail : `Request failed (${response.status})`);
+    ? body.detail : `ดำเนินการไม่สำเร็จ (รหัส ${response.status})`);
   return body;
 }
 
 const roleTabs = {
-  Owner: ['overview', 'reservation', 'support'],
-  CEO: ['overview'],
-  Receptionist: ['reservation'],
-  'IT Support': ['support'],
+  owner: ['overview', 'reservation', 'support'],
+  ceo: ['overview'],
+  reception: ['reservation'],
+  it_support: ['support'],
 };
+const roleLabels = { owner: 'Owner', ceo: 'CEO', reception: 'Receptionist', it_support: 'IT Support' };
 
-function showAuth(view = 'register') {
+function showAuth() {
   roomRequestVersion++;
   sessionToken = '';
   account = null;
+  supportUsers = [];
   sessionStorage.removeItem('pakping_dashboard_token');
   root.querySelector('.app-shell').hidden = true;
-  root.querySelector('#register-screen').hidden = view !== 'register';
-  root.querySelector('#login-screen').hidden = view !== 'login';
+  root.querySelector('#login-screen').hidden = false;
   state.reviews = [];
   state.rooms = [];
   state.loading = false;
@@ -215,19 +233,31 @@ function showAuth(view = 'register') {
   state.selectedId = null;
   state.selectedRoomNumber = null;
   state.confirmRoomAction = null;
+  state.refundBookingId = null;
+  state.refundConfirmed = false;
   for (const selector of ['#analytics-content', '#room-status-content', '#pending-content',
-    '#history-content', '#modal-root', '#register-result']) {
+    '#history-content', '#modal-root']) {
     root.querySelector(selector).replaceChildren();
   }
   root.querySelector('#login-password').value = '';
+  root.querySelector('#login-status').hidden = true;
+  root.querySelector('#profile-panel').hidden = true;
+  root.querySelector('#support-users').replaceChildren();
+  resetSupportForm();
+  root.querySelector('#profile-password-form').reset();
 }
 
 function showDashboard(profile) {
   account = profile;
-  root.querySelector('#register-screen').hidden = true;
   root.querySelector('#login-screen').hidden = true;
   root.querySelector('.app-shell').hidden = false;
-  root.querySelector('#account-name').textContent = `${profile.name} · ${profile.role}`;
+  root.querySelector('#account-name').textContent = `${profile.name} · ${roleLabels[profile.role] || profile.role}`;
+  root.querySelector('#profile-name').textContent = profile.name;
+  root.querySelector('#profile-role').textContent = roleLabels[profile.role] || profile.role;
+  root.querySelector('#profile-phone').textContent = profile.phone || 'ยังไม่ระบุ';
+  const ownerOption = root.querySelector('#support-user-form select[name="role"] option[value="owner"]');
+  ownerOption.hidden = profile.role !== 'owner';
+  ownerOption.disabled = profile.role !== 'owner';
   for (const name of ['overview', 'reservation', 'support']) {
     root.querySelector(`#${name}-tab`).hidden = !roleTabs[profile.role]?.includes(name);
   }
@@ -236,8 +266,59 @@ function showDashboard(profile) {
   refreshAll();
 }
 
+function supportError(message = '') {
+  const box = root.querySelector('#support-error');
+  box.textContent = message;
+  box.hidden = !message;
+}
+
+function resetSupportForm() {
+  const form = root.querySelector('#support-user-form');
+  form.reset();
+  form.elements.namedItem('worker_id').value = '';
+  root.querySelector('#support-save').textContent = 'สร้างบัญชี';
+  root.querySelector('#support-cancel').hidden = true;
+  supportError();
+}
+
+function renderSupportUsers() {
+  const container = root.querySelector('#support-users');
+  if (!supportUsers.length) {
+    container.innerHTML = '<p class="support-empty">ยังไม่มีบัญชีพนักงาน</p>';
+    return;
+  }
+  container.innerHTML = `<div class="support-users-list">${supportUsers.map((user) => `
+    <div class="support-user-row">
+      <div><strong>${esc(user.worker_name)}</strong><span>${esc(roleLabels[user.role] || user.role)} · ${esc(user.phone || 'ไม่มีเบอร์โทร')}</span></div>
+      <div class="support-user-actions">
+        <button class="button small" type="button" data-support-action="edit" data-id="${esc(user.id)}">แก้ไข</button>
+        <button class="button small" type="button" data-support-action="reset" data-id="${esc(user.id)}">รีเซ็ตรหัสผ่าน</button>
+        <button class="button small danger" type="button" data-support-action="delete" data-id="${esc(user.id)}" ${String(user.id) === String(account?.id) ? 'disabled title="ลบบัญชีตนเองไม่ได้"' : ''}>ลบ</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+async function loadSupportUsers() {
+  if (!account || !roleTabs[account.role]?.includes('support') || supportLoading) return;
+  const token = sessionToken;
+  supportLoading = true;
+  supportError();
+  root.querySelector('#support-refresh').disabled = true;
+  try {
+    const result = await request('/dashboard/users');
+    if (token !== sessionToken) return;
+    supportUsers = result.users || [];
+    renderSupportUsers();
+  } catch (error) {
+    if (token === sessionToken) supportError(error.message);
+  } finally {
+    supportLoading = false;
+    root.querySelector('#support-refresh').disabled = false;
+  }
+}
+
 function canRoomAction(action, row) {
-  if (state.busy || !row) return false;
+  if (state.busy || !row || row.refund_timestamp) return false;
   if (action === 'checkin') {
     return row.status === 'ready' && !row.arrive_at
       && ['full_payment', 'partial_deposit'].includes(row.payment_method)
@@ -263,7 +344,7 @@ function reviewRow(row, index, showRoomActions = false) {
     ? `<td data-label="วิธีชำระ"><div class="payment-method-cell">
         <span>${isPartial ? 'มัดจำ' : methodKnown ? 'เต็มจำนวน' : 'ไม่ทราบวิธีชำระ'}</span>
         ${isPartial ? `<small>คงเหลือ ${esc(money.format(balance))}</small>` : ''}
-        ${isPartial && row.status === 'ready' && !row.arrive_at ? `<label class="balance-confirmation">
+        ${isPartial && row.status === 'ready' && !row.arrive_at && !row.refund_timestamp ? `<label class="balance-confirmation">
           <input type="checkbox" data-balance-confirm="${esc(row.booking_id)}" ${balanceConfirmed ? 'checked' : ''} ${state.busy ? 'disabled' : ''}>
           <span>รับเงินส่วนที่เหลือแล้ว</span>
         </label>` : ''}
@@ -279,14 +360,17 @@ function reviewRow(row, index, showRoomActions = false) {
       <span><strong>${esc(row.customer_name)}</strong></span>
     </div></td>
     <td data-label="ห้อง"><strong>${esc(row.room_number)}</strong></td>
-    <td data-label="ยอดชำระ"><div class="payment-amounts"><strong>${esc(money.format(Number(row.amount) || 0))}</strong><br><small>ยอดเต็ม ${esc(money.format(Number(row.full_amount) || 0))}</small></div></td>
+    <td data-label="ยอดชำระ"><div class="payment-amounts"><strong>${esc(money.format(Number(row.amount) || 0))}</strong><br><small>ยอดเต็ม ${esc(money.format(Number(row.full_amount) || 0))}</small>
+      ${row.refund_timestamp ? `<div class="refund-request-details"><strong>${row.refund_completed_at ? 'คืนเงินแล้ว' : 'ขอคืน'} ${esc(row.refund_value)}%</strong><small>${esc(money.format((Number(row.amount) || 0) * Number(row.refund_value) / 100))}</small><small>ส่งคำขอ ${esc(bangkokDateTime(row.refund_timestamp))}</small>${row.refund_completed_at ? `<small>โอนคืนแล้ว ${esc(bangkokDateTime(row.refund_completed_at))}</small>` : ''}</div>` : ''}
+    </div></td>
     ${paymentMethodCell}
     <td data-label="วันเข้า"><div class="checkin-cell"><span>${esc(row.check_in || '—')}</span>${roomActions}</div></td>
     <td data-label="วันออก">${esc(row.check_out || '—')}</td>
     <td data-label="สถานะ"><span class="review-status review-status-${esc(row.status)}">${esc(statusLabels[row.status] || row.status)}</span></td>
-    <td data-label="สลิป">${row.has_slip
+    <td data-label="ดำเนินการ">${row.status === 'refund_pending'
+      ? `<button class="button small refund-open-button" type="button" data-action="open-refund" data-value="${esc(row.booking_id)}" ${state.busy ? 'disabled' : ''}>คืนเงิน</button>` : ''}${row.has_slip
       ? `<button class="button small slip-view-button ${row.status === 'paid' ? 'slip-awaiting-review' : 'slip-other-status'}" type="button" data-action="view-slip" data-value="${esc(row.booking_id)}">ดูภาพสลิป</button>`
-      : '—'}</td>
+      : row.status === 'refund_pending' ? '' : '—'}</td>
   </tr>`;
 }
 
@@ -302,7 +386,7 @@ function reviewTable(rows, showRoomActions = false) {
                   <th>วันเข้า</th>
                   <th>วันออก</th>
                   <th>สถานะ</th>
-                  <th><span class="sr-only">ดูสลิป</span></th>
+                  <th>ดำเนินการ</th>
                 </tr>
               </thead>
             <tbody>${rows.map((row, index) => reviewRow(row, index, showRoomActions)).join('')}</tbody>
@@ -310,14 +394,15 @@ function reviewTable(rows, showRoomActions = false) {
 }
 
 function reservationPage(rows, stateKey) {
-  const pageCount = Math.max(1, Math.ceil(rows.length / RESERVATIONS_PER_PAGE));
+  const pageSize = reservationsPerPage();
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   state[stateKey] = Math.min(Math.max(state[stateKey], 1), pageCount);
-  const start = (state[stateKey] - 1) * RESERVATIONS_PER_PAGE;
-  return rows.slice(start, start + RESERVATIONS_PER_PAGE);
+  const start = (state[stateKey] - 1) * pageSize;
+  return rows.slice(start, start + pageSize);
 }
 
 function reservationPagination(total, page, group) {
-  const pageCount = Math.ceil(total / RESERVATIONS_PER_PAGE);
+  const pageCount = Math.ceil(total / reservationsPerPage());
   if (pageCount <= 1) return '';
   const label = group === 'pending' ? 'รายการจองทั้งหมด' : 'รายการจองที่อนุมัติแล้ว';
   return `<nav class="reservation-pagination pagination-bar" data-page-group="${group}" data-page-count="${pageCount}" aria-label="หน้าของ${label}">
@@ -461,6 +546,40 @@ function roomActionConfirmModal() {
   </div>`;
 }
 
+function refundModal() {
+  if (state.refundBookingId === null) return '';
+  const row = state.reviews.find((item) => String(item.booking_id) === state.refundBookingId);
+  if (!row || row.status !== 'refund_pending') return '';
+  const refundAmount = (Number(row.amount) || 0) * Number(row.refund_value) / 100;
+  const hasTransferDetails = Number.isFinite(refundAmount) && refundAmount > 0
+    && Boolean(row.refund_bank && row.refund_account);
+  const fields = [
+    ['ผู้จอง', row.customer_name],
+    ['ห้อง', row.room_number],
+    ['รหัสการจอง', row.booking_id],
+    ['ยอดที่ต้องโอนคืน', money.format(refundAmount)],
+    ['อัตราคืนเงิน', `${row.refund_value}%`],
+    ['ธนาคาร/ช่องทาง', refundBankLabels[row.refund_bank] || row.refund_bank],
+    ['เลขที่บัญชี/พร้อมเพย์', row.refund_account],
+    ['เวลาขอคืนเงิน', bangkokDateTime(row.refund_timestamp)],
+  ];
+  return `<div class="modal-backdrop" data-action="backdrop">
+    <section class="modal refund-modal" role="dialog" aria-modal="true" aria-labelledby="refund-dialog-title">
+      <div class="modal-heading">
+        <div><h2 id="refund-dialog-title">คืนเงิน</h2><p>ตรวจสอบข้อมูลก่อนโอนเงินคืนลูกค้า</p></div>
+        <button class="icon-button" type="button" data-action="close-modal" aria-label="ปิดหน้าต่าง" ${state.busy ? 'disabled' : ''}>×</button>
+      </div>
+      <dl class="refund-modal-details">${fields.map(([label, value]) => `<div><dt>${label}</dt><dd>${esc(value || '—')}</dd></div>`).join('')}</dl>
+      ${hasTransferDetails ? '' : '<p class="review-error" role="alert">ข้อมูลสำหรับโอนคืนไม่ครบ กรุณาตรวจสอบรายการก่อน</p>'}
+      <label class="refund-confirmation"><input id="refund-confirmed" type="checkbox" ${state.refundConfirmed ? 'checked' : ''} ${state.busy ? 'disabled' : ''}> คืนเงินแล้ว</label>
+      <div class="modal-actions refund-modal-actions">
+        <button class="button" type="button" data-action="close-modal" ${state.busy ? 'disabled' : ''}>ยกเลิก</button>
+        <button class="button primary" type="button" data-action="complete-refund" ${state.busy || !state.refundConfirmed || !hasTransferDetails ? 'disabled' : ''}>ยืนยันคืนเงินแล้ว</button>
+      </div>
+    </section>
+  </div>`;
+}
+
 function render({ skipAnalytics = false } = {}) {
   if (!skipAnalytics) renderAnalytics();
   const pendingContent = root.querySelector('#pending-content');
@@ -478,7 +597,7 @@ function render({ skipAnalytics = false } = {}) {
   });
   const pending = sorted.filter((row) => state.visibleStatuses.has(row.status)
     && matchesReservationSearch(row, state.reservationSearch));
-  const approved = sorted.filter((row) => ['ready', 'inhouse'].includes(row.status));
+  const approved = sorted.filter((row) => ['ready', 'inhouse', 'refund_pending', 'refunded'].includes(row.status));
   const history = approved.filter((row) => matchesReservationSearch(row, state.approvedSearch))
     .sort((a, b) => (a.status === state.approvedStatusFirst ? 0 : 1)
       - (b.status === state.approvedStatusFirst ? 0 : 1));
@@ -504,10 +623,20 @@ function render({ skipAnalytics = false } = {}) {
       : `<div class="empty"><h3>${approved.length ? 'ไม่พบรายการที่ตรงกับการค้นหา' : 'ยังไม่มี reservation ที่อนุมัติแล้ว'}</h3></div>`;
   }
   root.querySelector('#modal-root').innerHTML = state.confirmRoomAction ? roomActionConfirmModal()
-    : state.selectedRoomNumber !== null ? occupantModal() : slipModal();
+    : state.refundBookingId !== null ? refundModal()
+      : state.selectedRoomNumber !== null ? occupantModal() : slipModal();
   root.querySelector('#toast-root').innerHTML = state.toast
     ? `<div class="toast" role="status"><span>${esc(state.toast)}</span><button data-action="dismiss-toast" aria-label="ปิดแจ้งเตือน">×</button></div>` : '';
 }
+
+reservationMobile.addEventListener('change', (event) => {
+  const oldPageSize = event.matches ? 5 : 2;
+  const newPageSize = reservationsPerPage();
+  for (const key of ['pendingPage', 'approvedPage']) {
+    state[key] = Math.floor((state[key] - 1) * oldPageSize / newPageSize) + 1;
+  }
+  render({ skipAnalytics: true });
+});
 
 async function loadRoomStatuses() {
   const version = ++roomRequestVersion;
@@ -573,6 +702,7 @@ function refreshAll() {
   const tasks = [];
   if (roleTabs[account.role].includes('overview')) tasks.push(loadRoomStatuses());
   if (roleTabs[account.role].includes('overview') || roleTabs[account.role].includes('reservation')) tasks.push(loadReviews());
+  if (roleTabs[account.role].includes('support')) tasks.push(loadSupportUsers());
   return Promise.all(tasks);
 }
 
@@ -585,6 +715,7 @@ function selectTab(name, updateUrl = false) {
   const allowed = roleTabs[account?.role] || [];
   const active = allowed.includes(name) ? name : allowed[0];
   if (!active) return;
+  root.querySelector('#profile-panel').hidden = true;
   for (const tabName of ['overview', 'reservation', 'support']) {
     const selected = tabName === active;
     const button = root.querySelector(`#${tabName}-tab`);
@@ -618,7 +749,12 @@ async function openSlip(bookingId) {
   render();
   try {
     const result = await request(`/booking_slip?booking_id=${encodeURIComponent(bookingId)}`);
-    const url = new URL(result.slip_url);
+    let url;
+    try {
+      url = new URL(result.slip_url);
+    } catch {
+      throw new Error('ลิงก์สลิปไม่ถูกต้อง');
+    }
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('ลิงก์สลิปไม่ถูกต้อง');
     if (state.selectedId === String(bookingId)) state.slipUrl = url.href;
   } catch (error) {
@@ -718,6 +854,46 @@ async function roomAction() {
   }
 }
 
+function openRefundModal(bookingId) {
+  const row = state.reviews.find((item) => String(item.booking_id) === String(bookingId));
+  if (state.busy || row?.status !== 'refund_pending') return;
+  state.selectedId = null;
+  state.selectedRoomNumber = null;
+  state.confirmRoomAction = null;
+  state.refundBookingId = String(bookingId);
+  state.refundConfirmed = false;
+  render({ skipAnalytics: true });
+  root.querySelector('#refund-confirmed')?.focus();
+}
+
+async function completeRefund() {
+  const bookingId = state.refundBookingId;
+  const row = state.reviews.find((item) => String(item.booking_id) === bookingId);
+  if (state.busy || !state.refundConfirmed || row?.status !== 'refund_pending'
+    || !row.refund_bank || !row.refund_account || Number(row.refund_value) <= 0) return;
+  state.busy = true;
+  render({ skipAnalytics: true });
+  try {
+    const result = await request('/complete_refund', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking_id: bookingId, confirmed: true }),
+    });
+    if (result.status !== 'refunded') throw new Error('บันทึกการคืนเงินไม่สำเร็จ กรุณาลองอีกครั้ง');
+    row.status = 'refunded';
+    row.refund_completed_at = result.refund_completed_at;
+    state.refundBookingId = null;
+    state.refundConfirmed = false;
+    showToast('บันทึกสถานะคืนเงินแล้ว');
+    await loadReviews();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    state.busy = false;
+    render({ skipAnalytics: true });
+  }
+}
+
 function closeModal() {
   if (state.busy) return;
   const previousRoomNumber = state.selectedRoomNumber;
@@ -725,6 +901,8 @@ function closeModal() {
   state.selectedId = null;
   state.selectedRoomNumber = null;
   state.confirmRoomAction = null;
+  state.refundBookingId = null;
+  state.refundConfirmed = false;
   state.slipUrl = '';
   state.slipError = '';
   render({ skipAnalytics: true });
@@ -738,8 +916,6 @@ function closeModal() {
 }
 
 root.addEventListener('click', (event) => {
-  const authSwitch = event.target.closest('[data-auth-view]');
-  if (authSwitch) { showAuth(authSwitch.dataset.authView); return; }
   if (event.target.closest('#logout-button')) {
     const logoutRequest = request('/dashboard/logout', { method: 'POST' });
     showAuth();
@@ -747,6 +923,51 @@ root.addEventListener('click', (event) => {
     return;
   }
   if (!account) return;
+  if (event.target.closest('#profile-button')) {
+    for (const name of ['overview', 'reservation', 'support']) root.querySelector(`#${name}-panel`).hidden = true;
+    root.querySelector('#profile-panel').hidden = false;
+    root.querySelector('#profile-error').hidden = true;
+    return;
+  }
+  if (event.target.closest('#profile-close')) { selectTab(tabFromHash()); return; }
+  if (event.target.closest('#support-refresh')) { loadSupportUsers(); return; }
+  if (event.target.closest('#support-cancel')) { resetSupportForm(); return; }
+  const supportButton = event.target.closest('[data-support-action]');
+  if (supportButton && roleTabs[account.role]?.includes('support')) {
+    const user = supportUsers.find((item) => String(item.id) === supportButton.dataset.id);
+    if (!user) return;
+    const action = supportButton.dataset.supportAction;
+    if (action === 'edit') {
+      const form = root.querySelector('#support-user-form');
+      form.elements.namedItem('worker_id').value = user.id;
+      form.elements.namedItem('name').value = user.worker_name;
+      form.elements.namedItem('phone').value = user.phone || '';
+      form.elements.namedItem('role').value = user.role;
+      root.querySelector('#support-save').textContent = 'บันทึกการแก้ไข';
+      root.querySelector('#support-cancel').hidden = false;
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (action === 'reset' && window.confirm(`รีเซ็ตรหัสผ่านของ ${user.worker_name} เป็นเบอร์โทร ${user.phone || 'ที่บันทึกไว้'}?`)) {
+      supportButton.disabled = true;
+      request(`/dashboard/users/${encodeURIComponent(user.id)}/reset-password`, { method: 'POST' })
+        .then(() => {
+          if (String(user.id) === String(account?.id)) {
+            showAuth();
+            const status = root.querySelector('#login-status');
+            status.textContent = 'รีเซ็ตรหัสผ่านแล้ว กรุณาเข้าสู่ระบบใหม่';
+            status.hidden = false;
+          } else showToast('รีเซ็ตรหัสผ่านแล้ว');
+        })
+        .catch((error) => supportError(error.message))
+        .finally(() => { supportButton.disabled = false; });
+    } else if (action === 'delete' && window.confirm(`ลบบัญชี ${user.worker_name} หรือไม่?`)) {
+      supportButton.disabled = true;
+      request(`/dashboard/users/${encodeURIComponent(user.id)}`, { method: 'DELETE' })
+        .then(() => { resetSupportForm(); return loadSupportUsers(); })
+        .catch((error) => supportError(error.message))
+        .finally(() => { supportButton.disabled = false; });
+    }
+    return;
+  }
   const tab = event.target.closest('[data-tab]');
   if (tab && root.contains(tab)) {
     selectTab(tab.dataset.tab, true);
@@ -789,6 +1010,8 @@ root.addEventListener('click', (event) => {
     render();
   }
   if (action === 'view-slip') openSlip(value);
+  if (action === 'open-refund') openRefundModal(value);
+  if (action === 'complete-refund') completeRefund();
   if (action === 'view-occupant') {
     state.selectedId = null;
     state.selectedRoomNumber = String(value);
@@ -803,11 +1026,59 @@ root.addEventListener('click', (event) => {
 });
 
 root.addEventListener('submit', (event) => {
+  if (event.target.id === 'support-user-form') {
+    event.preventDefault();
+    if (!account || !roleTabs[account.role]?.includes('support')) return;
+    const form = event.target;
+    const workerId = form.elements.namedItem('worker_id').value;
+    const save = root.querySelector('#support-save');
+    save.disabled = true;
+    supportError();
+    request(workerId ? `/dashboard/users/${encodeURIComponent(workerId)}` : '/dashboard/users', {
+      method: workerId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.elements.namedItem('name').value.trim(),
+        phone: form.elements.namedItem('phone').value.trim(), role: form.elements.namedItem('role').value }),
+    }).then(async () => {
+      resetSupportForm();
+      if (String(workerId) === String(account.id)) {
+        const profile = await request('/dashboard/me');
+        account = profile;
+        root.querySelector('#account-name').textContent = `${profile.name} · ${roleLabels[profile.role] || profile.role}`;
+        root.querySelector('#profile-name').textContent = profile.name;
+        root.querySelector('#profile-phone').textContent = profile.phone || 'ยังไม่ระบุ';
+      }
+      await loadSupportUsers();
+      showToast(workerId ? 'บันทึกข้อมูลแล้ว' : 'สร้างบัญชีแล้ว');
+    }).catch((error) => supportError(error.message)).finally(() => { save.disabled = false; });
+    return;
+  }
+  if (event.target.id === 'profile-password-form') {
+    event.preventDefault();
+    const form = event.target;
+    const box = root.querySelector('#profile-error');
+    const submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    box.hidden = true;
+    request('/dashboard/profile/password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: form.elements.namedItem('current_password').value,
+        new_password: form.elements.namedItem('new_password').value }),
+    }).then(() => {
+      form.reset();
+      showAuth();
+      const status = root.querySelector('#login-status');
+      status.textContent = 'เปลี่ยนรหัสผ่านแล้ว กรุณาเข้าสู่ระบบใหม่';
+      status.hidden = false;
+    }).catch((error) => { box.textContent = error.message; box.hidden = false; })
+      .finally(() => { submit.disabled = false; });
+    return;
+  }
   if (event.target.id === 'login-form') {
     event.preventDefault();
     const form = event.target;
     const errorBox = root.querySelector('#login-error');
     errorBox.hidden = true;
+    root.querySelector('#login-status').hidden = true;
     const submit = form.querySelector('[type="submit"]');
     submit.disabled = true;
     request('/dashboard/login', {
@@ -818,31 +1089,6 @@ root.addEventListener('submit', (event) => {
       sessionToken = result.token;
       sessionStorage.setItem('pakping_dashboard_token', sessionToken);
       showDashboard(result);
-    }).catch((error) => {
-      errorBox.textContent = error.message;
-      errorBox.hidden = false;
-    }).finally(() => { submit.disabled = false; });
-    return;
-  }
-  if (event.target.id === 'register-form') {
-    event.preventDefault();
-    const form = event.target;
-    const errorBox = root.querySelector('#register-error');
-    const resultBox = root.querySelector('#register-result');
-    errorBox.hidden = true;
-    resultBox.hidden = true;
-    const submit = form.querySelector('[type="submit"]');
-    submit.disabled = true;
-    request('/dashboard/register', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: form.elements.namedItem('name').value.trim(),
-        password: form.elements.namedItem('password').value,
-        role: form.elements.namedItem('role').value }),
-    }).then((result) => {
-      resultBox.textContent = `สร้างบัญชี ${result.name} (${result.role}) แล้ว ใช้ชื่อพนักงานนี้เข้าสู่ระบบ`;
-      resultBox.hidden = false;
-      root.querySelector('#login-worker-name').value = result.name;
-      form.reset();
     }).catch((error) => {
       errorBox.textContent = error.message;
       errorBox.hidden = false;
@@ -873,6 +1119,13 @@ window.addEventListener('hashchange', syncTabFromHash);
 window.addEventListener('popstate', syncTabFromHash);
 
 root.addEventListener('change', (event) => {
+  if (event.target.id === 'refund-confirmed') {
+    state.refundConfirmed = event.target.checked;
+    const row = state.reviews.find((item) => String(item.booking_id) === state.refundBookingId);
+    root.querySelector('[data-action="complete-refund"]').disabled = !state.refundConfirmed
+      || !row?.refund_bank || !row?.refund_account || Number(row.refund_value) <= 0;
+    return;
+  }
   const balanceCheckbox = event.target.closest('[data-balance-confirm]');
   if (balanceCheckbox) {
     const bookingId = balanceCheckbox.dataset.balanceConfirm;
@@ -949,10 +1202,10 @@ root.addEventListener('input', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
-  const modalOpen = state.selectedId !== null || state.selectedRoomNumber !== null || state.confirmRoomAction !== null;
+  const modalOpen = state.selectedId !== null || state.selectedRoomNumber !== null || state.confirmRoomAction !== null || state.refundBookingId !== null;
   if (event.key === 'Escape' && modalOpen) closeModal();
   if (event.key !== 'Tab' || !modalOpen) return;
-  const focusable = [...root.querySelectorAll('.modal button:not(:disabled), .modal textarea:not(:disabled)')];
+  const focusable = [...root.querySelectorAll('.modal button:not(:disabled), .modal textarea:not(:disabled), .modal input:not(:disabled)')];
   if (!focusable.length) return;
   if (event.shiftKey && document.activeElement === focusable[0]) {
     event.preventDefault();
@@ -964,7 +1217,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 if (sessionToken) {
-  request('/dashboard/me').then(showDashboard).catch(() => showAuth('login'));
+  request('/dashboard/me').then(showDashboard).catch(() => showAuth());
 } else {
   showAuth();
 }

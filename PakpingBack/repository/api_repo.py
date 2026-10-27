@@ -48,10 +48,17 @@ def payment_due(full_amount, payment_method):
     raise HTTPException(status_code=409, detail="วิธีชำระเงินไม่ถูกต้องครับ")
 
 def cancel_booking(user_id: str, booking_id: str | None = None):
-    deleted = db.rpc("cancel_unpaid_bookings_atomic", {
-        "p_user_id": user_id,
-        "p_booking_id": booking_id,
-    }).execute().data or []
+    try:
+        deleted = db.rpc("cancel_unpaid_bookings_atomic", {
+            "p_user_id": user_id,
+            "p_booking_id": booking_id,
+        }).execute().data or []
+    except APIError as ex:
+        if ex.code == "PGRST202":
+            logger.error("Supabase RPC cancel_unpaid_bookings_atomic is missing; apply the cancellation migration")
+            raise HTTPException(status_code=503, detail="ระบบยกเลิกรายการยังไม่พร้อม กรุณาติดต่อที่พักครับ") from ex
+        logger.exception("Unable to cancel unpaid booking %s", booking_id)
+        raise HTTPException(status_code=503, detail="ยกเลิกรายการไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
     if not deleted:
         return {"status": "not_found", "deleted_count": 0, "rooms": [], "qr_deleted_count": 0}
 
@@ -90,6 +97,63 @@ def cancel_booking(user_id: str, booking_id: str | None = None):
     if cleanup_errors:
         result["cleanup_errors"] = cleanup_errors
     return result
+
+REFUND_BANK_ACCOUNT_LENGTHS = {
+    "promptpay": (10,),
+    "BBL": (10,), "KBANK": (10,), "KTB": (10,), "SCB": (10,), "BAY": (10,),
+    "TTB": (10, 12), "GSB": (12,), "BAAC": (12,), "UOB": (10,),
+    "CIMBT": (10, 14), "KKP": (10, 14), "TISCO": (10, 14), "LH": (10, 14),
+    "ICBC": (10, 15), "GHB": (12, 15),
+}
+
+
+def cancel_approved_deposit(user_id: str, booking_id: str) -> dict:
+    try:
+        return db.rpc("cancel_approved_deposit_atomic", {
+            "p_user_id": user_id,
+            "p_booking_id": booking_id,
+        }).execute().data
+    except APIError as ex:
+        if ex.code == "P0001" and "deposit_cancel_unavailable" in str(ex):
+            raise HTTPException(status_code=409, detail="รายการนี้ยกเลิกไม่ได้แล้ว กรุณารีเฟรชรายการครับ") from ex
+        logger.exception("Unable to cancel approved deposit booking %s", booking_id)
+        raise HTTPException(status_code=503, detail="ยกเลิกรายการไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
+
+
+def request_refund(user_id: str, booking_id: str, refund_bank: str, refund_account: str) -> dict:
+    lengths = REFUND_BANK_ACCOUNT_LENGTHS.get(refund_bank)
+    if lengths is None:
+        raise HTTPException(status_code=422, detail="กรุณาเลือกธนาคารหรือพร้อมเพย์ที่รองรับครับ")
+    if len(refund_account) not in lengths:
+        allowed = " หรือ ".join(str(length) for length in lengths)
+        raise HTTPException(status_code=422, detail=f"เลขที่บัญชีหรือพร้อมเพย์ต้องมี {allowed} หลักครับ")
+    try:
+        result = db.rpc("request_refund_atomic", {
+            "p_user_id": user_id,
+            "p_booking_id": booking_id,
+            "p_refund_bank": refund_bank,
+            "p_refund_account": refund_account,
+        }).execute().data
+    except APIError as ex:
+        if ex.code == "P0001" and "refund_unavailable" in str(ex):
+            raise HTTPException(status_code=409, detail="รายการนี้ไม่สามารถขอคืนเงินได้แล้ว กรุณารีเฟรชรายการครับ") from ex
+        logger.exception("Unable to submit refund request for booking %s", booking_id)
+        raise HTTPException(status_code=503, detail="ส่งคำขอคืนเงินไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
+    return result
+
+
+def complete_refund(booking_id: str) -> dict:
+    try:
+        return db.rpc("complete_refund_atomic", {"p_booking_id": booking_id}).execute().data
+    except APIError as ex:
+        if ex.code == "P0001" and "refund_completion_unavailable" in str(ex):
+            raise HTTPException(status_code=409, detail="รายการนี้ยืนยันการคืนเงินไม่ได้แล้ว กรุณารีเฟรชรายการครับ") from ex
+        if ex.code == "42883" and "text <> integer" in str(ex):
+            logger.error("complete_refund_atomic compares text refund_value with integer; apply refund value type migration")
+            raise HTTPException(status_code=503, detail="ระบบยืนยันคืนเงินยังไม่พร้อม กรุณาติดต่อที่พักครับ") from ex
+        logger.exception("Unable to complete refund for booking %s", booking_id)
+        raise HTTPException(status_code=503, detail="บันทึกการคืนเงินไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
+
 
 def make_qr_url(booking: dict) -> str:
     try:
@@ -147,7 +211,8 @@ def create_booking(user_name:str, user_phone:str, user_id:str, room_number:str, 
         if code in ("23P01", "23505"):
             raise HTTPException(409, "ห้องไม่ว่างในช่วงวันที่เลือกครับ") from ex
         if code == "P4001":
-            raise HTTPException(400, message) from ex
+            logger.warning("Booking validation failed: %s", message)
+            raise HTTPException(400, "ข้อมูลการจองไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้งครับ") from ex
         logger.exception("Atomic booking failed")
         raise HTTPException(503, "ไม่สามารถสร้างรายการจองได้ในขณะนี้ครับ") from ex
     if not isinstance(booking, dict) or not booking.get("_id"):
@@ -242,12 +307,14 @@ def sync_booking_statuses():
                          .eq("room_number", customer["room_number"]).limit(1).execute().data or [])
                 if rooms and rooms[0]["status"] == "Busy":
                     continue
-                payments = (db.table("Payments").select("status")
+                payments = (db.table("Payments").select("status,refund_timestamp")
                             .eq("_id", booking_id).limit(1).execute().data or [])
                 if not payments:
                     logger.warning("Overdue ready booking %s has no payment row", booking_id)
                     continue
                 payment_status = payments[0]["status"]
+                if payments[0].get("refund_timestamp"):
+                    continue
                 if payment_status == "paid":
                     cancelled = (db.table("Payments").update({"status": "cancel"})
                                  .eq("_id", booking_id).eq("status", "paid").execute().data or [])
@@ -282,6 +349,12 @@ async def send_checkin_alerts():
         if not time(11, 30) <= datetime.now(timezone(timedelta(hours=7))).time() < time(11, 31):
             break
         try:
+            payment = await asyncio.to_thread(
+                lambda: db.table("Payments").select("refund_timestamp")
+                .eq("_id", r["booking_id"]).limit(1).execute().data or []
+            )
+            if payment and payment[0].get("refund_timestamp"):
+                continue
             await send_checkin_alert(r["line_user_id"], r["booking_id"])
             await asyncio.to_thread(
                 lambda: db.table("Customers").update({"alert_sent": True})
@@ -359,7 +432,7 @@ def list_user_payments(user_id: str) -> dict:
         offset = 0
         while True:
             page = (db.table("Payments")
-                    .select("_id,room_number,check_in,check_out,amount,full_amount,payment_method,status,expired_at,paid_at,slip_path")
+                    .select("_id,room_number,check_in,check_out,amount,full_amount,payment_method,status,expired_at,paid_at,slip_path,refund_timestamp,refund_value,refund_completed_at")
                     .eq("line_user_id", user_id)
                     .in_("status", ["pending", "paid", "expired", "cancel"])
                     .order("expired_at", desc=True)
@@ -398,7 +471,11 @@ def list_user_payments(user_id: str) -> dict:
     for row in rows:
         booking_id = row["_id"]
         review = review_statuses.get(str(booking_id), {})
-        if review.get("status") == "missing":
+        if row.get("refund_completed_at"):
+            payment_status = "refunded"
+        elif row.get("refund_timestamp") and row["status"] == "paid" and review.get("status") == "ready":
+            payment_status = "refund_pending"
+        elif review.get("status") == "missing":
             payment_status = "missing"
         elif review.get("status") == "ready" and review.get("arrive_at") and not review.get("out_at"):
             payment_status = "inhouse"
@@ -434,6 +511,9 @@ def list_user_payments(user_id: str) -> dict:
             "full_amount": row.get("full_amount"),
             "payment_due": payment_due(row["full_amount"], row["payment_method"]),
             "payment_method": row["payment_method"],
+            "refund_timestamp": row.get("refund_timestamp"),
+            "refund_value": row.get("refund_value"),
+            "refund_completed_at": row.get("refund_completed_at"),
             "expired_at": row["expired_at"],
             "payment_status": payment_status,
             "description": review.get("description") if payment_status in ("decline", "cancel") else None,
@@ -456,7 +536,7 @@ def list_reservations() -> dict:
         offset = 0
         while True:
             page = (client.table("Payments")
-                    .select("_id,room_number,check_in,check_out,amount,full_amount,payment_method,status,expired_at,paid_at,initial_paid_at,slip_path")
+                    .select("_id,room_number,check_in,check_out,amount,full_amount,payment_method,status,expired_at,paid_at,initial_paid_at,slip_path,refund_timestamp,refund_value,refund_bank,refund_account,refund_completed_at")
                     .order("check_in", desc=True)
                     .range(offset, offset + 499).execute().data or [])
             payments.extend(page)
@@ -495,7 +575,11 @@ def list_reservations() -> dict:
         customer = customers.get(booking_id, {})
         payment_status = payment["status"]
         customer_status = customer.get("status")
-        if customer_status == "missing":
+        if payment.get("refund_completed_at"):
+            status = "refunded"
+        elif payment.get("refund_timestamp") and payment_status == "paid" and customer_status == "ready":
+            status = "refund_pending"
+        elif customer_status == "missing":
             status = "missing"
         elif customer_status == "ready" and customer.get("arrive_at") and not customer.get("out_at"):
             status = "inhouse"
@@ -520,6 +604,11 @@ def list_reservations() -> dict:
             "amount": payment["amount"],
             "full_amount": payment.get("full_amount"),
             "payment_method": payment.get("payment_method"),
+            "refund_timestamp": payment.get("refund_timestamp"),
+            "refund_value": payment.get("refund_value"),
+            "refund_bank": payment.get("refund_bank"),
+            "refund_account": payment.get("refund_account"),
+            "refund_completed_at": payment.get("refund_completed_at"),
             "status": status,
             "description": customer.get("description"),
             "arrive_at": customer.get("arrive_at"),
@@ -544,10 +633,12 @@ def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed
             if customer["status"] not in ("ready", "inhouse", "success"):
                 raise HTTPException(status_code=409, detail="รายการจองยังไม่ได้รับการอนุมัติครับ")
 
-            payments = (client.table("Payments").select("status,payment_method,amount,full_amount")
+            payments = (client.table("Payments").select("status,payment_method,amount,full_amount,refund_timestamp")
                         .eq("_id", booking_id).limit(1).execute().data or [])
             if not payments or payments[0]["status"] != "paid":
                 raise HTTPException(status_code=409, detail="รายการชำระเงินยังไม่พร้อมใช้งานครับ")
+            if payments[0].get("refund_timestamp"):
+                raise HTTPException(status_code=409, detail="รายการนี้อยู่ระหว่างคืนเงิน ไม่สามารถเช็คอินหรือเช็คเอาต์ได้ครับ")
 
             room_number = customer["room_number"]
             rooms = (client.table("Rooms").select("status")
@@ -724,12 +815,12 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
     try:
         encoded = image_data.split(",", 1)[1] if image_data.startswith("data:image/") else image_data
         if len(encoded) > ((MAX_SLIP_BYTES + 2) // 3) * 4:
-            raise HTTPException(422, "รูปสลิปต้องมีขนาดไม่เกิน 5 MB ครับ")
+            raise HTTPException(422, "รูปสลิปต้องมีขนาดไม่เกิน 5 เมกะไบต์ครับ")
         image_bytes = base64.b64decode(encoded, validate=True)
     except (IndexError, binascii.Error, ValueError) as ex:
         raise HTTPException(422, "รูปสลิปไม่ถูกต้องครับ") from ex
     if not image_bytes or len(image_bytes) > MAX_SLIP_BYTES:
-        raise HTTPException(422, "รูปสลิปต้องมีขนาดไม่เกิน 5 MB ครับ")
+        raise HTTPException(422, "รูปสลิปต้องมีขนาดไม่เกิน 5 เมกะไบต์ครับ")
     try:
         with Image.open(io.BytesIO(image_bytes)) as image:
             image.verify()
@@ -737,7 +828,7 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
     except (UnidentifiedImageError, OSError, ValueError) as ex:
         raise HTTPException(422, "รูปสลิปไม่ถูกต้องครับ") from ex
     if image_format not in SLIP_FORMATS:
-        raise HTTPException(422, "รูปสลิปต้องเป็นไฟล์ JPEG, PNG หรือ WebP ครับ")
+        raise HTTPException(422, "รูปสลิปต้องเป็นไฟล์ภาพชนิดเจเพ็ก พีเอ็นจี หรือเว็บพีครับ")
 
     with booking_lock:
         queried = False
@@ -825,13 +916,13 @@ def set_room_status(room_number: str, status: str, user_id: str):
 
 def insert_worker_data(userId: str, worker_name: str, phone: str) -> dict:
     if not userId or not worker_name:
-        raise HTTPException(status_code=422, detail="กรุณาระบุ userId และชื่อพนักงานครับ")
+        raise HTTPException(status_code=422, detail="กรุณาระบุรหัสผู้ใช้และชื่อพนักงานครับ")
     result = db.table("Worker").insert({"line_user_id": userId, "worker_name": worker_name, "role": "housekeeper", "phone": phone}).execute()
     return {"data": result.data}
 
 async def worker_data_input(userId: str):
     if not userId:
-        raise HTTPException(status_code=422, detail="กรุณาระบุ userId ครับ")
+        raise HTTPException(status_code=422, detail="กรุณาระบุรหัสผู้ใช้ครับ")
     return await send_worker_input(userId)
 
 async def booking_expiry_worker(stop):
