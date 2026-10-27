@@ -12,21 +12,62 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=5">
+  <link rel="stylesheet" href="./styles.css?v=6">
   <link rel="stylesheet" href="./front-theme.css?v=28">
 </head>
 
 <body>
   <div id="app">
 
-    <div class="app-shell">
+    <section id="register-screen" class="auth-screen" aria-labelledby="register-title">
+      <form id="register-form" class="auth-card">
+        <span class="brand-mark" aria-hidden="true">p.</span>
+        <p class="auth-eyebrow">PAKPING STAFF DESK</p>
+        <h1 id="register-title">สมัครบัญชี Dashboard</h1>
+        <label for="register-name">ชื่อพนักงาน</label>
+        <input id="register-name" name="name" maxlength="200" autocomplete="name" required>
+        <label for="register-password">รหัสผ่าน</label>
+        <input id="register-password" name="password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required>
+        <label for="register-role">Role</label>
+        <select id="register-role" name="role" required>
+          <option value="IT Support">IT Support</option>
+          <option value="CEO">CEO</option>
+          <option value="Receptionist">Receptionist</option>
+          <option value="Owner">Owner</option>
+        </select>
+        <p id="register-error" class="auth-error" role="alert" hidden></p>
+        <div id="register-result" class="register-result" role="status" hidden></div>
+        <button class="button primary" type="submit">สร้างบัญชี</button>
+        <button class="auth-switch" type="button" data-auth-view="login">มีบัญชีแล้ว? เข้าสู่ระบบ</button>
+      </form>
+    </section>
+
+    <section id="login-screen" class="auth-screen" aria-labelledby="login-title" hidden>
+      <form id="login-form" class="auth-card">
+        <span class="brand-mark" aria-hidden="true">p.</span>
+        <p class="auth-eyebrow">PAKPING STAFF DESK</p>
+        <h1 id="login-title">เข้าสู่ระบบ Dashboard</h1>
+        <p class="auth-hint">กรอกชื่อพนักงานและรหัสผ่านของคุณ</p>
+        <label for="login-worker-name">ชื่อพนักงาน</label>
+        <input id="login-worker-name" name="worker_name" autocomplete="username" required>
+        <label for="login-password">รหัสผ่าน</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        <p id="login-error" class="auth-error" role="alert" hidden></p>
+        <button class="button primary" type="submit">เข้าสู่ระบบ</button>
+        <button class="auth-switch" type="button" data-auth-view="register">สร้างบัญชีใหม่</button>
+      </form>
+    </section>
+
+    <div class="app-shell" hidden>
 
       <header id="top" class="dashboard-header">
         <div class="brand"><span class="brand-mark" aria-hidden="true">p.</span><span>Pakping Hotel</span></div>
         <div class="dashboard-tabs" role="tablist" aria-label="หน้าจัดการ">
           <button id="overview-tab" class="dashboard-tab is-active" type="button" role="tab" aria-controls="overview-panel" aria-selected="true" data-tab="overview">Overview</button>
           <button id="reservation-tab" class="dashboard-tab" type="button" role="tab" aria-controls="reservation-panel" aria-selected="false" tabindex="-1" data-tab="reservation">Reservation</button>
+          <button id="support-tab" class="dashboard-tab" type="button" role="tab" aria-controls="support-panel" aria-selected="false" tabindex="-1" data-tab="support">Support</button>
         </div>
+        <div class="account-actions"><span id="account-name"></span><button id="logout-button" class="button small" type="button">ออกจากระบบ</button></div>
       </header>
 
       <div class="main-shell">
@@ -137,6 +178,12 @@
           </section>
           </div>
 
+          <div id="support-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="support-tab" hidden>
+            <section class="card support-card" aria-labelledby="support-title">
+              <div class="card-heading"><div><h2 id="support-title">Support</h2><p>ส่วนจัดการ Support กำลังพัฒนา</p></div></div>
+            </section>
+          </div>
+
         </main>
       </div>
 
@@ -145,7 +192,7 @@
     </div>
 
   </div>
-  <script type="module" src="./app.js?v=40"></script>
+  <script type="module" src="./app.js?v=46"></script>
 </body>
 
 </html>

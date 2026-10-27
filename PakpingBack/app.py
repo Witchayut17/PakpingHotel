@@ -28,9 +28,10 @@ app.add_middleware(
         "http://localhost:5500",
         "http://127.0.0.1:5500",
         "https://candyce-corkier-meaningfully.ngrok-free.dev",
+        "https://thinks-disclaimers-turns-coverage.trycloudflare.com",
     ],
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 landing_directory = Path(__file__).resolve().parent.parent / "PakpingFront" / "src"

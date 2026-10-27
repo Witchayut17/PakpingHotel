@@ -12,6 +12,7 @@ from storge.db import get_db
 from datetime import datetime, timedelta, timezone, date, time
 from fastapi import HTTPException
 from utils.timestamps import parse_db_timestamp
+from utils.worker_log import get_worker, log_worker_action
 from services.reply_flexroom import send_checkin_alert, send_worker_input
 import asyncio
 import logging
@@ -814,14 +815,18 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
             logger.exception("Slip saved, but related booking data could not be synchronized for %s", booking_id)
         return {"status": "pending_review", "booking_id": str(booking_id)}
 
-def set_room_status(room_number: str, status: str):
+def set_room_status(room_number: str, status: str, user_id: str):
+    worker = get_worker(user_id)
     room = (db.table("Rooms").update({"status": status}).eq("room_number", room_number).execute())
+    if not room.data:
+        raise HTTPException(status_code=404, detail="ไม่พบห้องที่ระบุ")
+    log_worker_action(worker, f"set_room_status_by_number: room_number={room_number}, status={status}")
     return {"set": room.data}
 
-def insert_worker_data(userId: str, worker_name: str) -> dict:
+def insert_worker_data(userId: str, worker_name: str, phone: str) -> dict:
     if not userId or not worker_name:
         raise HTTPException(status_code=422, detail="กรุณาระบุ userId และชื่อพนักงานครับ")
-    result = db.table("Worker").insert({"line_user_id": userId, "worker_name": worker_name, "role": "housekeeper"}).execute()
+    result = db.table("Worker").insert({"line_user_id": userId, "worker_name": worker_name, "role": "housekeeper", "phone": phone}).execute()
     return {"data": result.data}
 
 async def worker_data_input(userId: str):
@@ -833,12 +838,10 @@ async def booking_expiry_worker(stop):
     while not stop.is_set():
         try:
             await asyncio.to_thread(sync_booking_statuses)
-            print("log sync_booking_statuses")
         except Exception:
             logger.exception("Unable to synchronize booking expiry")
         try:
             await send_checkin_alerts()
-            print("send_checkin_alerts")
         except Exception:
             logger.exception("Unable to check for check-in alerts")
         try:

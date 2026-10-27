@@ -1,15 +1,54 @@
 import logging
 from starlette.concurrency import run_in_threadpool
-from fastapi import Body, HTTPException, Query
+from fastapi import Body, Depends, Header, HTTPException, Query
 from repository import api_repo
-from models.api_model import ReplyAvailablePayload, BookingRequest, SlipRequest, CancelBookingRequest, UpdateUserStatusRequest, ReservationRoomActionRequest, UserReply, WorkerData, ReplyMaintenancePayload, RoomStatus
+from models.api_model import ReplyAvailablePayload, BookingRequest, SlipRequest, CancelBookingRequest, UpdateUserStatusRequest, ReservationRoomActionRequest, UserReply, WorkerData, ReplyMaintenancePayload, RoomStatus, DashboardLogin, DashboardRegister
 from storge.db import get_db
 from services.reply_flexroom import reply_available_rooms, send_approval_message, reply_maintenance_rooms
 from repository.api_repo import create_booking, make_qr_url, worker_data_input, set_room_status
 from services.n8n_event import process_n8n_event
+from utils.dashboard_auth import ROLES, create_session, current_worker, hash_password, revoke_session, verify_password
 
 db = get_db()
 logger = logging.getLogger(__name__)
+
+def _login_worker(payload: DashboardLogin) -> dict:
+    rows = (db.table("Worker").select("id,worker_name,role,password")
+            .eq("worker_name", payload.worker_name).in_("role", sorted(ROLES))
+            .limit(2).execute().data or [])
+    if len(rows) != 1 or not verify_password(payload.password, rows[0].get("password")):
+        raise HTTPException(status_code=401, detail="ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง")
+    worker = rows[0]
+    return {"token": create_session(worker), "name": worker["worker_name"], "role": worker["role"]}
+
+def _register_worker(payload: DashboardRegister) -> dict:
+    existing = (db.table("Worker").select("id")
+                .eq("worker_name", payload.name).in_("role", sorted(ROLES))
+                .limit(1).execute().data or [])
+    if existing:
+        raise HTTPException(status_code=409, detail="ชื่อพนักงานนี้มีบัญชี Dashboard แล้ว")
+    rows = db.table("Worker").insert({"worker_name": payload.name,"role": payload.role,"password": hash_password(payload.password)}).execute().data or []
+    if not rows:
+        raise HTTPException(status_code=500, detail="สร้างบัญชีไม่สำเร็จ")
+    return {"name": rows[0]["worker_name"], "role": rows[0]["role"]}
+
+async def dashboard_register(payload: DashboardRegister) -> dict:
+    return await run_in_threadpool(_register_worker, payload)
+
+async def dashboard_login(payload: DashboardLogin) -> dict:
+    return await run_in_threadpool(_login_worker, payload)
+
+async def dashboard_me(worker: dict = Depends(current_worker)) -> dict:
+    return {"name": worker["worker_name"], "role": worker["role"]}
+
+async def dashboard_logout(authorization: str = Header(...), worker: dict = Depends(current_worker)) -> dict:
+    revoke_session(authorization[7:])
+    return {"status": "Success"}
+
+async def dashboard_overview_data() -> dict:
+    result = await run_in_threadpool(api_repo.list_reservations)
+    fields = ("customer_name", "room_number", "check_in", "check_out", "amount","full_amount", "payment_method", "status", "arrive_at", "initial_paid_at")
+    return {"records": [{**{field: row.get(field) for field in fields},"is_mock": str(row.get("line_user_id") or "").startswith("MOCK-")}for row in result["records"]]}
 
 async def received_n8n(payload: dict = Body(...)) -> dict:
     if "body" in payload:
@@ -146,7 +185,7 @@ async def worker_reply(payload: dict = Body(...)) -> dict:
         raise HTTPException(status_code=500, detail="ไม่สามารถตรวจสอบข้อมูลพนักงานได้ครับ") from ex
 
 async def worker_insert(payload: WorkerData):
-    return await run_in_threadpool(api_repo.insert_worker_data, payload.userId, payload.worker_name)
+    return await run_in_threadpool(api_repo.insert_worker_data, payload.userId, payload.worker_name, payload.phone)
 
 async def reply_maintenance(payload: ReplyMaintenancePayload):
     try:
@@ -158,8 +197,10 @@ async def reply_maintenance(payload: ReplyMaintenancePayload):
 
 async def set_room_status_by_number(payload: RoomStatus):
     try:
-        await run_in_threadpool(set_room_status, payload.room_number, payload.status)
+        await run_in_threadpool(set_room_status, payload.room_number, payload.status, payload.userId)
         return {"status": "Success"}
+    except HTTPException:
+        raise
     except Exception as ex:
         logger.exception("Unable to set room status")
         raise HTTPException(status_code=500, detail="ไม่สามารถเปลี่ยนสถานะห้องได้ครับ") from ex

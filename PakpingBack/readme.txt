@@ -1,13 +1,16 @@
 N8N Housekeeper เพิ่ม Phone input เซฟลง DB
 
 Add Login for each role
-- ทำ หน้า login ของ Dashboard และทำ Permission ให้เห็นเฉพาะ Page ตาม Role นั้นๆ
+- ทำหน้า register ของ Dashboard ใส่ input 3 field คือ name , password , role dropdown ให้เลือก 3 อันคือ IT Support , CEO , Redceptionist , Owner , แล้ว save data ลง table Worker (ตัว password ให้ hash ก่อนเซฟ)
+
+- ทำ หน้า login ของ Dashboard และทำ Permission ให้เห็นเฉพาะ Page ตาม Role นั้นๆ (โดยใช้ 2 field ID - Password โดยเอาข้อมูลจากตาราง Worker มา) โดยแต่ละ role ทำได้ดังนี้
     CEO = เห็น Overview
     Receptionist = เห็น Reservation
     IT Support = เห็น Support (ตอนนี้ยังไม่มี)
     Owner = เห็นทุกอย่าง อนุมัติทุก Permission
 
 - ทำ IT Support Role | หน้าเฉพาะของ dashboard ชื่อ Support Section ทำฟอร์ม input สำหรับทำ CRUD ของ user ขึ้นมา | default เป็น เบอร์โทรไปแก้เองใน profile หลัง login
+
 - เพิ่มปุ่ม Viewprofile ของแต่ละ หน้าของ Page Overview / Reservation / Support ไว้เข้าไปดู profile ของตนเองหลัง login | แสดง worker_name , role , phone , password(editable)
 
 

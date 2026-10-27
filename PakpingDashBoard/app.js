@@ -1,12 +1,14 @@
-const API_BASE_URL = 'https://exhaust-terrorist-fees-seventh.trycloudflare.com';
+const API_BASE_URL = 'https://spoke-kevin-posters-cottages.trycloudflare.com';
 const ROOMS_PER_PAGE = 5;
 const RESERVATIONS_PER_PAGE = 2;
 const analyticsMobile = window.matchMedia('(max-width: 700px)');
 const analyticsNarrow = window.matchMedia('(max-width: 480px)');
 const root = document.querySelector('#app');
+let sessionToken = sessionStorage.getItem('pakping_dashboard_token') || '';
+let account = null;
 let renderBusinessAnalytics = null;
 let analyticsLoadError = '';
-import('./analytics.js?v=11').then((module) => {
+import('./analytics.js?v=12').then((module) => {
   renderBusinessAnalytics = module.renderAnalytics;
   renderAnalytics();
 }).catch((error) => {
@@ -117,6 +119,7 @@ function goToPage(group, page) {
 }
 
 function renderAnalytics() {
+  if (!account || !roleTabs[account.role]?.includes('overview')) return;
   if (analyticsLoadError) {
     root.querySelector('#analytics-content').innerHTML = `<div class="empty" role="alert"><p>${esc(analyticsLoadError)}</p></div>`;
     return;
@@ -175,11 +178,62 @@ analyticsMobile.addEventListener('change', applyAnalyticsPagination);
 analyticsNarrow.addEventListener('change', applyAnalyticsPagination);
 
 async function request(path, options) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  const sentToken = sessionToken;
+  const headers = new Headers(options?.headers || {});
+  if (sentToken) headers.set('Authorization', `Bearer ${sentToken}`);
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   const body = await response.json().catch(() => ({}));
+  if (response.status === 401 && path !== '/dashboard/login' && sentToken === sessionToken) showAuth('login');
   if (!response.ok) throw new Error(typeof body.detail === 'string'
     ? body.detail : `Request failed (${response.status})`);
   return body;
+}
+
+const roleTabs = {
+  Owner: ['overview', 'reservation', 'support'],
+  CEO: ['overview'],
+  Receptionist: ['reservation'],
+  'IT Support': ['support'],
+};
+
+function showAuth(view = 'register') {
+  roomRequestVersion++;
+  sessionToken = '';
+  account = null;
+  sessionStorage.removeItem('pakping_dashboard_token');
+  root.querySelector('.app-shell').hidden = true;
+  root.querySelector('#register-screen').hidden = view !== 'register';
+  root.querySelector('#login-screen').hidden = view !== 'login';
+  state.reviews = [];
+  state.rooms = [];
+  state.loading = false;
+  state.roomsLoading = false;
+  state.roomsLoaded = false;
+  state.error = '';
+  state.roomsError = '';
+  state.userId = {};
+  state.selectedId = null;
+  state.selectedRoomNumber = null;
+  state.confirmRoomAction = null;
+  for (const selector of ['#analytics-content', '#room-status-content', '#pending-content',
+    '#history-content', '#modal-root', '#register-result']) {
+    root.querySelector(selector).replaceChildren();
+  }
+  root.querySelector('#login-password').value = '';
+}
+
+function showDashboard(profile) {
+  account = profile;
+  root.querySelector('#register-screen').hidden = true;
+  root.querySelector('#login-screen').hidden = true;
+  root.querySelector('.app-shell').hidden = false;
+  root.querySelector('#account-name').textContent = `${profile.name} · ${profile.role}`;
+  for (const name of ['overview', 'reservation', 'support']) {
+    root.querySelector(`#${name}-tab`).hidden = !roleTabs[profile.role]?.includes(name);
+  }
+  syncTabFromHash();
+  render();
+  refreshAll();
 }
 
 function canRoomAction(action, row) {
@@ -412,6 +466,12 @@ function render({ skipAnalytics = false } = {}) {
   const pendingContent = root.querySelector('#pending-content');
   const historyContent = root.querySelector('#history-content');
   updateRefreshButton();
+  if (!account || !roleTabs[account.role]?.includes('reservation')) {
+    pendingContent.replaceChildren();
+    historyContent.replaceChildren();
+    root.querySelector('#modal-root').replaceChildren();
+    return;
+  }
   const sorted = [...state.reviews].sort((a, b) => {
     const byDate = String(a.check_in || '').localeCompare(String(b.check_in || ''));
     return state.sortNewest ? -byDate : byDate;
@@ -451,16 +511,17 @@ function render({ skipAnalytics = false } = {}) {
 
 async function loadRoomStatuses() {
   const version = ++roomRequestVersion;
+  const token = sessionToken;
   state.roomsLoading = true;
   state.roomsError = '';
   renderRoomStatuses();
   try {
     const result = await request('/room_statuses');
-    if (version === roomRequestVersion) state.rooms = Array.isArray(result.rooms) ? result.rooms : [];
+    if (version === roomRequestVersion && token === sessionToken) state.rooms = Array.isArray(result.rooms) ? result.rooms : [];
   } catch (error) {
-    if (version === roomRequestVersion) state.roomsError = error.message;
+    if (version === roomRequestVersion && token === sessionToken) state.roomsError = error.message;
   } finally {
-    if (version === roomRequestVersion) {
+    if (version === roomRequestVersion && token === sessionToken) {
       state.roomsLoading = false;
       state.roomsLoaded = true;
       renderRoomStatuses();
@@ -478,22 +539,25 @@ function showToast(message) {
 
 async function loadReviews() {
   if (state.loading) return;
+  const token = sessionToken;
   state.loading = true;
   state.error = '';
   render();
   try {
-    const result = await request('/list_reservations');
+    const result = await request(account.role === 'CEO' ? '/dashboard/overview_data' : '/list_reservations');
+    if (token !== sessionToken) return;
     const records = result.records || [];
     state.reviews = records;
     state.balanceConfirmed.clear();
-    state.userId = Object.fromEntries(
-      records.map((row) =>  [row.booking_id, row.line_user_id])
-    );
+    state.userId = Object.fromEntries(records.filter((row) => row.booking_id)
+      .map((row) => [row.booking_id, row.line_user_id]));
   } catch (error) {
-    state.error = error.message;
+    if (token === sessionToken) state.error = error.message;
   } finally {
-    state.loading = false;
-    render();
+    if (token === sessionToken) {
+      state.loading = false;
+      render();
+    }
   }
 }
 
@@ -505,18 +569,23 @@ function updateRefreshButton() {
 }
 
 function refreshAll() {
-  if (state.loading || state.roomsLoading) return;
-  return Promise.all([loadReviews(), loadRoomStatuses()]);
+  if (!account || state.loading || state.roomsLoading) return;
+  const tasks = [];
+  if (roleTabs[account.role].includes('overview')) tasks.push(loadRoomStatuses());
+  if (roleTabs[account.role].includes('overview') || roleTabs[account.role].includes('reservation')) tasks.push(loadReviews());
+  return Promise.all(tasks);
 }
 
 function tabFromHash() {
-  return ['#reservation', '#pending', '#history'].includes(window.location.hash)
-    ? 'reservation' : 'overview';
+  if (window.location.hash === '#support') return 'support';
+  return ['#reservation', '#pending', '#history'].includes(window.location.hash) ? 'reservation' : 'overview';
 }
 
 function selectTab(name, updateUrl = false) {
-  const active = name === 'reservation' ? 'reservation' : 'overview';
-  for (const tabName of ['overview', 'reservation']) {
+  const allowed = roleTabs[account?.role] || [];
+  const active = allowed.includes(name) ? name : allowed[0];
+  if (!active) return;
+  for (const tabName of ['overview', 'reservation', 'support']) {
     const selected = tabName === active;
     const button = root.querySelector(`#${tabName}-tab`);
     button.classList.toggle('is-active', selected);
@@ -525,7 +594,7 @@ function selectTab(name, updateUrl = false) {
     root.querySelector(`#${tabName}-panel`).hidden = !selected;
   }
   if (updateUrl) {
-    const hash = active === 'overview' ? '#analytics' : '#pending';
+    const hash = active === 'overview' ? '#analytics' : active === 'reservation' ? '#pending' : '#support';
     if (window.location.hash !== hash) window.history.pushState(null, '', hash);
   }
 }
@@ -533,7 +602,8 @@ function selectTab(name, updateUrl = false) {
 function syncTabFromHash() {
   selectTab(tabFromHash());
   const target = document.getElementById(window.location.hash.slice(1));
-  if (target && ['analytics', 'rooms', 'pending', 'history'].includes(target.id)) {
+  if (target && ((['analytics', 'rooms'].includes(target.id) && roleTabs[account?.role]?.includes('overview'))
+    || (['pending', 'history'].includes(target.id) && roleTabs[account?.role]?.includes('reservation')))) {
     requestAnimationFrame(() => target.scrollIntoView());
   }
 }
@@ -668,6 +738,15 @@ function closeModal() {
 }
 
 root.addEventListener('click', (event) => {
+  const authSwitch = event.target.closest('[data-auth-view]');
+  if (authSwitch) { showAuth(authSwitch.dataset.authView); return; }
+  if (event.target.closest('#logout-button')) {
+    const logoutRequest = request('/dashboard/logout', { method: 'POST' });
+    showAuth();
+    logoutRequest.catch(() => {});
+    return;
+  }
+  if (!account) return;
   const tab = event.target.closest('[data-tab]');
   if (tab && root.contains(tab)) {
     selectTab(tab.dataset.tab, true);
@@ -724,6 +803,52 @@ root.addEventListener('click', (event) => {
 });
 
 root.addEventListener('submit', (event) => {
+  if (event.target.id === 'login-form') {
+    event.preventDefault();
+    const form = event.target;
+    const errorBox = root.querySelector('#login-error');
+    errorBox.hidden = true;
+    const submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    request('/dashboard/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ worker_name: form.elements.namedItem('worker_name').value.trim(),
+        password: form.elements.namedItem('password').value }),
+    }).then((result) => {
+      sessionToken = result.token;
+      sessionStorage.setItem('pakping_dashboard_token', sessionToken);
+      showDashboard(result);
+    }).catch((error) => {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    }).finally(() => { submit.disabled = false; });
+    return;
+  }
+  if (event.target.id === 'register-form') {
+    event.preventDefault();
+    const form = event.target;
+    const errorBox = root.querySelector('#register-error');
+    const resultBox = root.querySelector('#register-result');
+    errorBox.hidden = true;
+    resultBox.hidden = true;
+    const submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    request('/dashboard/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.elements.namedItem('name').value.trim(),
+        password: form.elements.namedItem('password').value,
+        role: form.elements.namedItem('role').value }),
+    }).then((result) => {
+      resultBox.textContent = `สร้างบัญชี ${result.name} (${result.role}) แล้ว ใช้ชื่อพนักงานนี้เข้าสู่ระบบ`;
+      resultBox.hidden = false;
+      root.querySelector('#login-worker-name').value = result.name;
+      form.reset();
+    }).catch((error) => {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    }).finally(() => { submit.disabled = false; });
+    return;
+  }
   const form = event.target.closest('form[data-page-jump]');
   if (!form || !root.contains(form)) return;
   event.preventDefault();
@@ -735,9 +860,11 @@ root.addEventListener('keydown', (event) => {
   if (!tab || !root.contains(tab)) return;
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
-  const next = event.key === 'Home' ? 'overview'
-    : event.key === 'End' ? 'reservation'
-      : tab.dataset.tab === 'overview' ? 'reservation' : 'overview';
+  const tabs = roleTabs[account?.role] || [];
+  const index = tabs.indexOf(tab.dataset.tab);
+  const next = event.key === 'Home' ? tabs[0]
+    : event.key === 'End' ? tabs.at(-1)
+      : tabs[(index + (event.key === 'ArrowLeft' ? tabs.length - 1 : 1)) % tabs.length];
   selectTab(next, true);
   root.querySelector(`#${next}-tab`).focus();
 });
@@ -836,6 +963,9 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-syncTabFromHash();
-render();
+if (sessionToken) {
+  request('/dashboard/me').then(showDashboard).catch(() => showAuth('login'));
+} else {
+  showAuth();
+}
 refreshAll();

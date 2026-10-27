@@ -18,7 +18,7 @@ const amount = (value) => Number.isFinite(Number(value)) ? Math.max(0, Number(va
 const percent = (part, total) => total > 0 ? Math.round(part / total * 100) : 0;
 const approved = (row) => ['ready', 'inhouse', 'success'].includes(row.status);
 const hasReceipt = (row) => ['ready', 'inhouse', 'success', 'cancel', 'missing'].includes(row.status);
-const isMock = (row) => String(row.line_user_id || '').startsWith('MOCK-');
+const isMock = (row) => row.is_mock || String(row.line_user_id || '').startsWith('MOCK-');
 
 function datesForRange(state, root, rows, today) {
   switch (state.analyticsRange) {

@@ -48,7 +48,20 @@ class UserReply(BaseModel):
 class WorkerData(BaseModel):
     userId: str
     worker_name: str
+    phone: str
 
 class RoomStatus(BaseModel):
     room_number: str
     status: str
+    userId: constr(strip_whitespace=True, min_length=1)
+
+
+class DashboardLogin(BaseModel):
+    worker_name: constr(strip_whitespace=True, min_length=1)
+    password: str
+
+
+class DashboardRegister(BaseModel):
+    name: constr(strip_whitespace=True, min_length=1, max_length=200)
+    password: constr(min_length=8, max_length=256)
+    role: Literal["IT Support", "CEO", "Receptionist", "Owner"]
