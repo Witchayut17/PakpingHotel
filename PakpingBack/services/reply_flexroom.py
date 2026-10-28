@@ -296,6 +296,19 @@ async def send_worker_input(userId:str):
         response.raise_for_status()
     return {"status": "replied"}
 
+async def send_refund_message(userId:str):
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            "https://api.line.me/v2/bot/message/push",
+            headers={"Authorization": f"Bearer {line_channel_access_token}"},
+            json={
+                "to": userId,
+                "messages": [{"type": "text", "text": "แจ้งเตือน - คืนเงินเสร็จสิ้นแล้ว"}],
+            },
+        )
+        response.raise_for_status()
+    return {"status": "replied"}
+
 # async def reply(token: str, text: str):
 #     async with httpx.AsyncClient() as c:
 #         response = await c.post("https://api.line.me/v2/bot/message/reply",headers={"Authorization": f"Bearer {line_channel_access_token}"},json={"replyToken": token,"messages": [{"type": "text", "text": text}]})

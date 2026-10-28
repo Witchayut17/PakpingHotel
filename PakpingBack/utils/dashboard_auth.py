@@ -4,7 +4,7 @@ import secrets
 import time
 from threading import RLock
 
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException , Depends
 
 from setting import DASHBOARD_PASSWORD
 from storge.db import get_db
@@ -30,10 +30,8 @@ def verify_password(password: str, stored: str | None) -> bool:
     except (ValueError, TypeError):
         return False
 
-
 def verify_owner_master_password(password: str, role: str) -> bool:
-    return (role == "owner" and bool(DASHBOARD_PASSWORD)
-            and hmac.compare_digest(password.encode("utf-8"), DASHBOARD_PASSWORD.encode("utf-8")))
+    return (role == "owner" and bool(DASHBOARD_PASSWORD) and hmac.compare_digest(password.encode("utf-8"), DASHBOARD_PASSWORD.encode("utf-8")))
 
 def create_session(worker: dict) -> str:
     token = secrets.token_urlsafe(32)
@@ -46,7 +44,6 @@ def create_session(worker: dict) -> str:
                 del _sessions[key]
         _sessions[token_hash] = (worker["id"], now + SESSION_SECONDS, credential)
     return token
-
 
 def revoke_session(token: str) -> None:
     with _sessions_lock:
@@ -82,12 +79,9 @@ def current_worker(authorization: str | None = Header(default=None)) -> dict:
     return _worker_for_token(authorization[7:])
 
 def require_roles(*roles: str, allow_owner: bool = True):
-    from fastapi import Depends
-
     def check(worker: dict = Depends(current_worker)) -> dict:
         if worker["role"] not in roles and not (allow_owner and worker["role"] == "owner"):
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ใช้งานส่วนนี้")
         return worker
-
     return check
 

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone, date, time
 from fastapi import HTTPException
 from utils.timestamps import parse_db_timestamp
 from utils.worker_log import get_worker, log_worker_action, log_worker_event
-from services.reply_flexroom import send_checkin_alert, send_worker_input
+from services.reply_flexroom import send_checkin_alert, send_worker_input, send_refund_message
 import asyncio
 import logging
 from threading import RLock
@@ -34,6 +34,14 @@ MAX_SLIP_BYTES = 5 * 1024 * 1024
 SLIP_FORMATS = {"JPEG": ("jpg", "image/jpeg"), "PNG": ("png", "image/png"), "WEBP": ("webp", "image/webp")}
 
 DECLINE_RETRY_MINUTES = 15
+
+REFUND_BANK_ACCOUNT_LENGTHS = {
+    "promptpay": (10,),
+    "BBL": (10,), "KBANK": (10,), "KTB": (10,), "SCB": (10,), "BAY": (10,),
+    "TTB": (10, 12), "GSB": (12,), "BAAC": (12,), "UOB": (10,),
+    "CIMBT": (10, 14), "KKP": (10, 14), "TISCO": (10, 14), "LH": (10, 14),
+    "ICBC": (10, 15), "GHB": (12, 15),
+}
 
 db = get_db()
 
@@ -98,15 +106,6 @@ def cancel_booking(user_id: str, booking_id: str | None = None):
         result["cleanup_errors"] = cleanup_errors
     return result
 
-REFUND_BANK_ACCOUNT_LENGTHS = {
-    "promptpay": (10,),
-    "BBL": (10,), "KBANK": (10,), "KTB": (10,), "SCB": (10,), "BAY": (10,),
-    "TTB": (10, 12), "GSB": (12,), "BAAC": (12,), "UOB": (10,),
-    "CIMBT": (10, 14), "KKP": (10, 14), "TISCO": (10, 14), "LH": (10, 14),
-    "ICBC": (10, 15), "GHB": (12, 15),
-}
-
-
 def cancel_approved_deposit(user_id: str, booking_id: str) -> dict:
     try:
         return db.rpc("cancel_approved_deposit_atomic", {
@@ -118,7 +117,6 @@ def cancel_approved_deposit(user_id: str, booking_id: str) -> dict:
             raise HTTPException(status_code=409, detail="รายการนี้ยกเลิกไม่ได้แล้ว กรุณารีเฟรชรายการครับ") from ex
         logger.exception("Unable to cancel approved deposit booking %s", booking_id)
         raise HTTPException(status_code=503, detail="ยกเลิกรายการไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
-
 
 def request_refund(user_id: str, booking_id: str, refund_bank: str, refund_account: str) -> dict:
     lengths = REFUND_BANK_ACCOUNT_LENGTHS.get(refund_bank)
@@ -141,21 +139,30 @@ def request_refund(user_id: str, booking_id: str, refund_bank: str, refund_accou
         raise HTTPException(status_code=503, detail="ส่งคำขอคืนเงินไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
     return result
 
-
-def complete_refund(booking_id: str, *, actor: dict) -> dict:
+async def complete_refund(booking_id: str, *, actor: dict) -> dict:
     try:
-        result = db.rpc("complete_refund_atomic", {"p_booking_id": booking_id}).execute().data
+        result = (await asyncio.to_thread(
+            lambda: db.rpc("complete_refund_atomic", {"p_booking_id": booking_id}).execute()
+        )).data
     except APIError as ex:
         if ex.code == "P0001" and "refund_completion_unavailable" in str(ex):
-            raise HTTPException(status_code=409, detail="รายการนี้ยืนยันการคืนเงินไม่ได้แล้ว กรุณารีเฟรชรายการครับ") from ex
+            raise HTTPException(409, "รายการนี้ยืนยันการคืนเงินไม่ได้แล้ว กรุณารีเฟรชรายการครับ") from ex
         if ex.code == "42883" and "text <> integer" in str(ex):
             logger.error("complete_refund_atomic compares text refund_value with integer; apply refund value type migration")
-            raise HTTPException(status_code=503, detail="ระบบยืนยันคืนเงินยังไม่พร้อม กรุณาติดต่อที่พักครับ") from ex
+            raise HTTPException(503, "ระบบยืนยันคืนเงินยังไม่พร้อม กรุณาติดต่อที่พักครับ") from ex
         logger.exception("Unable to complete refund for booking %s", booking_id)
-        raise HTTPException(status_code=503, detail="บันทึกการคืนเงินไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
-    log_worker_event(actor, "refund_completed", booking_id=booking_id)
-    return result
+        raise HTTPException(503, "บันทึกการคืนเงินไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
 
+    log_worker_event(actor, "refund_completed", booking_id=booking_id)
+
+    try:
+        rows = (await asyncio.to_thread(
+            lambda: db.table("Customers").select("line_user_id").eq("booking_id", booking_id).limit(1).execute())).data
+        if rows and rows[0].get("line_user_id"):
+            await send_refund_message(rows[0]["line_user_id"])
+    except Exception:
+        logger.exception("Refund notification failed for booking %s", booking_id)
+    return result
 
 def make_qr_url(booking: dict) -> str:
     try:
@@ -840,9 +847,7 @@ def save_slip(user_id: str, booking_id: str, image_data: str) -> dict:
         queried = False
         for id_column in ("id", "_id"):
             try:
-                rows = (db.table("Payments").select("*")
-                        .eq(id_column, booking_id).eq("line_user_id", user_id)
-                        .limit(1).execute().data)
+                rows = (db.table("Payments").select("*").eq(id_column, booking_id).eq("line_user_id", user_id).limit(1).execute().data)
                 queried = True
             except Exception:
                 if id_column == "id" or queried:

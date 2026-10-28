@@ -19,7 +19,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5500",
     "https://candyce-corkier-meaningfully.ngrok-free.dev",
     "https://thinks-disclaimers-turns-coverage.trycloudflare.com",
-    "https://unheralded-knottiest-hadlee.ngrok-free.dev"
+    # "https://unheralded-knottiest-hadlee.ngrok-free.dev" > เปาเทส cors ของ public dns
 ]
 
 @asynccontextmanager
@@ -35,14 +35,12 @@ async def lifespan(app):
 app = FastAPI(lifespan=lifespan)
 app.include_router(api_route.router)
 
-
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=422,
         content={"detail": "ข้อมูลที่ส่งมาไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้งครับ"},
     )
-
 
 @app.exception_handler(StarletteHTTPException)
 async def http_error_handler(request: Request, exc: StarletteHTTPException):
@@ -52,7 +50,6 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException):
     }
     detail = default_messages.get(exc.detail, exc.detail) if isinstance(exc.detail, str) else exc.detail
     return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=exc.headers)
-
 
 @app.exception_handler(Exception)
 async def unexpected_error_handler(request: Request, exc: Exception):
@@ -72,6 +69,6 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-landing_directory = Path(__file__).resolve().parent.parent / "PakpingFront" / "src"
+landing_directory = Path(__file__).resolve().parent.parent / "PakpingFront"
 if landing_directory.is_dir():
     app.mount("/stay", StaticFiles(directory=landing_directory, html=True), name="stay")

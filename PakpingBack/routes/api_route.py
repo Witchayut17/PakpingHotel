@@ -3,17 +3,12 @@ from controllers import api_control
 from utils.dashboard_auth import require_roles
 
 router = APIRouter()
+# POST
 router.add_api_route("/dashboard/login", endpoint=api_control.dashboard_login, methods=["POST"], response_model=dict)
-router.add_api_route("/dashboard/me", endpoint=api_control.dashboard_me, methods=["GET"], response_model=dict)
 router.add_api_route("/dashboard/logout", endpoint=api_control.dashboard_logout, methods=["POST"], response_model=dict)
-router.add_api_route("/dashboard/users", endpoint=api_control.dashboard_users_list, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])
 router.add_api_route("/dashboard/users", endpoint=api_control.dashboard_users_create, methods=["POST"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])
-router.add_api_route("/dashboard/users/{worker_id}", endpoint=api_control.dashboard_users_update, methods=["PUT"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])
-router.add_api_route("/dashboard/users/{worker_id}", endpoint=api_control.dashboard_users_delete, methods=["DELETE"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])
 router.add_api_route("/dashboard/users/{worker_id}/reset-password", endpoint=api_control.dashboard_users_reset_password, methods=["POST"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])
 router.add_api_route("/dashboard/profile/password", endpoint=api_control.dashboard_change_password, methods=["POST"], response_model=dict)
-router.add_api_route("/dashboard/overview_data", endpoint=api_control.dashboard_overview_data, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("ceo"))])
-router.add_api_route("/dashboard/worker-logs", endpoint=api_control.dashboard_worker_logs, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("it_support", allow_owner=False))])
 router.add_api_route("/received_n8n", endpoint=api_control.received_n8n, methods=["POST"], response_model=dict)
 router.add_api_route("/check_input", endpoint=api_control.check_input, methods=["POST"], response_model=dict)
 router.add_api_route("/reply_available", endpoint=api_control.reply_available, methods=["POST"], response_model=dict)
@@ -30,6 +25,11 @@ router.add_api_route("/reply_approval", endpoint=api_control.reply_approval, met
 router.add_api_route("/worker_reply", endpoint=api_control.worker_reply, methods=["POST"], response_model=dict)
 router.add_api_route("/worker_insert", endpoint=api_control.worker_insert, methods=["POST"], response_model=dict)
 router.add_api_route("/set_room_status_by_number", endpoint=api_control.set_room_status_by_number, methods=["POST"], response_model=dict)
+# GET
+router.add_api_route("/dashboard/me", endpoint=api_control.dashboard_me, methods=["GET"], response_model=dict)
+router.add_api_route("/dashboard/users", endpoint=api_control.dashboard_users_list, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])
+router.add_api_route("/dashboard/overview_data", endpoint=api_control.dashboard_overview_data, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("ceo"))])
+router.add_api_route("/dashboard/worker-logs", endpoint=api_control.dashboard_worker_logs, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("it_support", allow_owner=False))])
 router.add_api_route("/list_room", endpoint=api_control.list_rooms, methods=["GET"], response_model=dict)
 router.add_api_route("/room_statuses", endpoint=api_control.list_room_statuses, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("ceo"))])
 router.add_api_route("/room_availability", endpoint=api_control.room_availability, methods=["GET"], response_model=dict)
@@ -37,3 +37,7 @@ router.add_api_route("/list_user_payments", endpoint=api_control.list_user_payme
 router.add_api_route("/list_user_paid", endpoint=api_control.list_user_paid, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("reception"))])
 router.add_api_route("/list_reservations", endpoint=api_control.list_reservations, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("reception"))])
 router.add_api_route("/booking_slip", endpoint=api_control.get_booking_slip, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("reception"))])
+# PUT
+router.add_api_route("/dashboard/users/{worker_id}", endpoint=api_control.dashboard_users_update, methods=["PUT"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])
+# DELETE
+router.add_api_route("/dashboard/users/{worker_id}", endpoint=api_control.dashboard_users_delete, methods=["DELETE"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])

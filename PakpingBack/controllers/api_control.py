@@ -141,11 +141,10 @@ async def cancel_booking(payload: CancelBookingRequest):
     return await run_in_threadpool(api_repo.cancel_booking, payload.user_id, payload.booking_id)
 
 async def request_refund(payload: RefundRequest):
-    return await run_in_threadpool(api_repo.request_refund, payload.user_id, payload.booking_id,
-                                   payload.refund_bank, payload.refund_account)
+    return await run_in_threadpool(api_repo.request_refund, payload.user_id, payload.booking_id,payload.refund_bank, payload.refund_account)
 
 async def complete_refund(payload: CompleteRefundRequest, worker: dict = Depends(current_worker)):
-    return await run_in_threadpool(api_repo.complete_refund, payload.booking_id, actor=worker)
+    return await api_repo.complete_refund(payload.booking_id, actor=worker)
 
 async def cancel_approved_deposit(payload: CancelBookingRequest):
     if not payload.booking_id:

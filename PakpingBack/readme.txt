@@ -47,5 +47,5 @@ Fix bug
 - check if sent image what happen ผ่าน
 - cancel after success the payment (customer | Receptionist) ผ่าน
 - add housekeeper alert for maintenance room ผ่าน
-- receptionist input data for Walk- in customer register ยัง
-- check login consent not check all agreement ยัง
+- receptionist input data for Walk- in customer register เสร็จ
+- check login consent not check all agreement เสร็จ

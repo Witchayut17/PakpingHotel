@@ -19,9 +19,7 @@ WORKER_ACTIONS = {
     "account_password_reset",
 }
 
-
 def list_worker_logs(page: int = 1, page_size: int = 20, search: str = "", role: str = "") -> dict:
-    """Read audit rows only. Discover the existing timestamp column without migrations."""
     if page < 1 or not 1 <= page_size <= 100:
         raise HTTPException(status_code=422, detail="เลขหน้าหรือจำนวนรายการต่อหน้าไม่ถูกต้อง")
     if role and role not in {"owner", "ceo", "reception", "it_support", "housekeeper"}:
@@ -35,7 +33,6 @@ def list_worker_logs(page: int = 1, page_size: int = 20, search: str = "", role:
         time_column = next((key for key in ("created_at", "timestamp", "createdAt", "created_time", "created_on", "time") if key in columns), None)
         query = client.table("Worker_log").select("*", count="exact")
         if search.strip():
-            # Treat percent/underscore as literal characters, not search wildcards.
             term = search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             query = query.ilike("worker_name", f"%{term}%")
         if role:
@@ -46,69 +43,27 @@ def list_worker_logs(page: int = 1, page_size: int = 20, search: str = "", role:
             query = query.order("id", desc=True)
         offset = (page - 1) * page_size
         result = query.range(offset, offset + page_size - 1).execute()
-        records = [{"id": row.get("id"), "created_at": row.get(time_column) if time_column else None,
-                    "worker_name": row.get("worker_name"), "role": row.get("role"),
-                    "description": row.get("description"), "userId": row.get("userId")}
-                   for row in result.data or []]
+        records = [{"id": row.get("id"), "created_at": row.get(time_column) if time_column else None, "worker_name": row.get("worker_name"), "role": row.get("role"), "description": row.get("description"), "userId": row.get("userId")} for row in result.data or []]
         return {"records": records, "total": result.count or 0, "page": page, "page_size": page_size}
     except Exception as error:
         logger.exception("Unable to read Worker_log")
         raise HTTPException(status_code=503, detail="ไม่สามารถโหลดประวัติพนักงานได้ กรุณาลองอีกครั้ง") from error
 
-
 def get_worker(user_id: str) -> dict:
-    rows = (
-        get_db().table("Worker")
-        .select("id,line_user_id,worker_name,role")
-        .eq("line_user_id", user_id)
-        .limit(1)
-        .execute().data or []
-    )
+    rows = (get_db().table("Worker").select("id,line_user_id,worker_name,role").eq("line_user_id", user_id).limit(1).execute().data or [])
     if not rows:
         raise HTTPException(status_code=403, detail="ไม่พบพนักงานสำหรับรหัสผู้ใช้นี้")
     return rows[0]
 
 def log_worker_action(worker: dict, description: str) -> None:
-    """Insert an audit row. Worker_log must already have a role column.
-
-    Existing LINE callers use line_user_id; Dashboard actors without a LINE
-    account use their Worker.id. Pass the actor's authenticated account data.
-    """
     actor_id = worker.get("line_user_id") or worker.get("id")
     if actor_id is None or not str(actor_id).strip():
         raise ValueError("กรุณาระบุรหัสพนักงาน")
     if not worker.get("worker_name") or not worker.get("role"):
         raise ValueError("กรุณาระบุชื่อและบทบาทพนักงาน")
-    get_db().table("Worker_log").insert({
-        "description": description,
-        "userId": str(actor_id),
-        "worker_name": worker["worker_name"],
-        "role": worker["role"],
-    }).execute()
+    get_db().table("Worker_log").insert({"description": description, "userId": str(actor_id), "worker_name": worker["worker_name"], "role": worker["role"],}).execute()
 
-
-def log_worker_event(
-    worker: dict,
-    action: str,
-    *,
-    booking_id: str | None = None,
-    target_worker_id: str | None = None,
-    room_number: str | None = None,
-    arrive_at: str | None = None,
-    out_at: str | None = None,
-    reason: str | None = None,
-) -> bool:
-    """Log a completed profile, reservation, or support action.
-
-    Call after the business operation succeeds. This function only inserts a
-    Worker_log row; it does not modify accounts, bookings, or room statuses.
-    Event details use the existing description column. Never pass passwords or
-    tokens in reason. Only reason_provided is recorded in the English audit
-    description; the original free-text reason stays on the reservation.
-    The role is the actor's role, not the target account's.
-    If the audit insert fails, report it in the server log and return False;
-    the caller's already completed operation must not appear to have failed.
-    """
+def log_worker_event(worker: dict, action: str, *, booking_id: str | None = None, target_worker_id: str | None = None, room_number: str | None = None, arrive_at: str | None = None, out_at: str | None = None, reason: str | None = None,) -> bool:
     if action not in WORKER_ACTIONS:
         raise ValueError("ไม่รองรับการดำเนินการของพนักงานที่ระบุ")
     reservation_actions = {"slip_approved", "slip_declined", "checkin", "checkout", "refund_completed"}
@@ -124,9 +79,7 @@ def log_worker_event(
     details = {}
     if action in {"profile_updated", "password_reset"}:
         details["worker_id"] = worker.get("id") or worker.get("line_user_id")
-    for key, value in (("booking_id", booking_id), ("target_worker_id", target_worker_id),
-                       ("room_number", room_number), ("arrive_at", arrive_at),
-                       ("out_at", out_at)):
+    for key, value in (("booking_id", booking_id), ("target_worker_id", target_worker_id), ("room_number", room_number), ("arrive_at", arrive_at), ("out_at", out_at)):
         if value is not None:
             details[key] = str(value)
     if reason is not None:
@@ -139,7 +92,6 @@ def log_worker_event(
     try:
         log_worker_action(worker, description)
     except Exception:
-        logger.exception("Worker_log insert failed: actor=%s role=%s event=%s",
-                         worker.get("id") or worker.get("line_user_id"), worker.get("role"), description)
+        logger.exception("Worker_log insert failed: actor=%s role=%s event=%s", worker.get("id") or worker.get("line_user_id"), worker.get("role"), description)
         return False
     return True

@@ -1,6 +1,6 @@
 import { createWorkerLog } from './worker-log.js?v=7';
 
-export const API_BASE_URL = 'https://quantum-classifieds-cream-stars.trycloudflare.com';
+export const API_BASE_URL = 'https://spirits-health-codes-equipped.trycloudflare.com';
 
 function initializeDashboard() {
   const reservationMobile = window.matchMedia('(max-width: 900px)');
@@ -211,12 +211,12 @@ function initializeDashboard() {
     return body;
   }
 
-  const roleTabs = {
+const roleTabs = {
     owner: ['overview', 'reservation', 'support'],
     ceo: ['overview'],
     reception: ['reservation'],
     it_support: ['support', 'worker-log'],
-  };
+};
   const roleLabels = { owner: 'Owner', ceo: 'CEO', reception: 'Receptionist', it_support: 'IT Support' };
 
   function showAuth() {
