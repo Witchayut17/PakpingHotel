@@ -81,11 +81,11 @@ def current_worker(authorization: str | None = Header(default=None)) -> dict:
         raise HTTPException(status_code=401, detail="กรุณาเข้าสู่ระบบ")
     return _worker_for_token(authorization[7:])
 
-def require_roles(*roles: str):
+def require_roles(*roles: str, allow_owner: bool = True):
     from fastapi import Depends
 
     def check(worker: dict = Depends(current_worker)) -> dict:
-        if worker["role"] != "owner" and worker["role"] not in roles:
+        if worker["role"] not in roles and not (allow_owner and worker["role"] == "owner"):
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ใช้งานส่วนนี้")
         return worker
 

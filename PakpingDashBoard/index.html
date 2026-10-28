@@ -14,6 +14,7 @@
     rel="stylesheet">
   <link rel="stylesheet" href="./styles.css?v=7">
   <link rel="stylesheet" href="./front-theme.css?v=31">
+  <link rel="stylesheet" href="./worker-log.css?v=3">
 </head>
 
 <body>
@@ -41,7 +42,7 @@
         <div class="brand"><span class="brand-mark" aria-hidden="true">p.</span><span>Pakping Hotel</span></div>
         <div class="dashboard-tabs" role="tablist" aria-label="หน้าจัดการ">
           <button id="overview-tab" class="dashboard-tab is-active" type="button" role="tab" aria-controls="overview-panel" aria-selected="true" data-tab="overview">Overview</button>
-          <a id="worker-log-link" class="dashboard-tab" href="./worker-log.html" hidden>Worker Log</a>
+          <button id="worker-log-tab" class="dashboard-tab" type="button" role="tab" aria-controls="worker-log-panel" aria-selected="false" tabindex="-1" data-tab="worker-log" hidden>Worker Log</button>
           <button id="reservation-tab" class="dashboard-tab" type="button" role="tab" aria-controls="reservation-panel" aria-selected="false" tabindex="-1" data-tab="reservation">Reservation</button>
           <button id="support-tab" class="dashboard-tab" type="button" role="tab" aria-controls="support-panel" aria-selected="false" tabindex="-1" data-tab="support">Support</button>
         </div>
@@ -148,7 +149,8 @@
               <div><h2 id="history-title">Reservation ที่อนุมัติแล้ว</h2><p>รายการเข้าพักและรายการคืนเงิน</p></div>
             </div>
             <div class="reservation-controls">
-              <button id="sort-approved-status" class="button small" type="button" data-action="sort-approved-status">สถานะ: อนุมัติแล้วก่อน</button>
+              <button id="sort-approved-date" class="button small" type="button" data-action="sort-approved-date" aria-pressed="true">วันเข้า: ก่อนไปหลัง</button>
+              <button id="sort-approved-amount" class="button small" type="button" data-action="sort-approved-amount" aria-pressed="false">ยอดชำระ: มากไปน้อย</button>
               <label class="search-field" for="approved-search"><span class="sr-only">ค้นหา Reservation ที่อนุมัติแล้ว</span>
                 <input id="approved-search" type="search" placeholder="ค้นหาชื่อ ห้อง หรือรหัสการจอง" autocomplete="off">
               </label>
@@ -174,6 +176,21 @@
             </section>
           </div>
 
+          <div id="worker-log-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="worker-log-tab" hidden>
+          <section id="log-panel" class="card reservations-card" aria-labelledby="log-title">
+            <div class="card-heading"><div><h2 id="log-title">Worker Log</h2><p>แสดงผู้ทำรายการ บทบาท และ description ตามที่บันทึกไว้</p></div><button id="log-refresh" class="button small" type="button">รีเฟรช</button></div>
+            <form id="log-filter" class="reservation-controls log-controls">
+              <label class="search-field">ชื่อพนักงาน<input id="log-search" name="search" type="search" maxlength="200" placeholder="ค้นหาชื่อพนักงาน" autocomplete="off"></label>
+              <label>Role<select id="log-role" name="role"><option value="">ทั้งหมด</option><option value="owner">Owner</option><option value="ceo">CEO</option><option value="reception">Receptionist</option><option value="it_support">IT Support</option><option value="housekeeper">Housekeeper</option></select></label>
+              <button class="button primary" type="submit">ค้นหา</button>
+              <button id="log-reset" class="button" type="button">ล้างตัวกรอง</button>
+            </form>
+            <p id="log-status" role="status" aria-live="polite"></p>
+            <div id="log-table" class="table-scroll" tabindex="0" role="region" aria-label="ตารางประวัติการทำงาน"></div>
+            <div class="table-footer log-footer"><span id="log-count"></span><nav aria-label="หน้าประวัติพนักงาน"><button id="log-prev" class="button small" type="button">ก่อนหน้า</button><span id="log-page"></span><button id="log-next" class="button small" type="button">ถัดไป</button></nav></div>
+          </section>
+          </div>
+
           <div id="profile-panel" class="dashboard-panel" hidden>
             <section class="card support-card" aria-labelledby="profile-title">
               <div class="card-heading"><div><h2 id="profile-title">โปรไฟล์ของฉัน</h2><p>ข้อมูลบัญชีและการเปลี่ยนรหัสผ่าน</p></div><button id="profile-close" class="button small" type="button">กลับ</button></div>
@@ -195,7 +212,7 @@
     </div>
 
   </div>
-  <script type="module" src="./app.js?v=55"></script>
+  <script type="module" src="./app.js?v=59"></script>
 </body>
 
 </html>

@@ -13,7 +13,7 @@ router.add_api_route("/dashboard/users/{worker_id}", endpoint=api_control.dashbo
 router.add_api_route("/dashboard/users/{worker_id}/reset-password", endpoint=api_control.dashboard_users_reset_password, methods=["POST"], response_model=dict, dependencies=[Depends(require_roles("it_support"))])
 router.add_api_route("/dashboard/profile/password", endpoint=api_control.dashboard_change_password, methods=["POST"], response_model=dict)
 router.add_api_route("/dashboard/overview_data", endpoint=api_control.dashboard_overview_data, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("ceo"))])
-router.add_api_route("/dashboard/worker-logs", endpoint=api_control.dashboard_worker_logs, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("ceo"))])
+router.add_api_route("/dashboard/worker-logs", endpoint=api_control.dashboard_worker_logs, methods=["GET"], response_model=dict, dependencies=[Depends(require_roles("it_support", allow_owner=False))])
 router.add_api_route("/received_n8n", endpoint=api_control.received_n8n, methods=["POST"], response_model=dict)
 router.add_api_route("/check_input", endpoint=api_control.check_input, methods=["POST"], response_model=dict)
 router.add_api_route("/reply_available", endpoint=api_control.reply_available, methods=["POST"], response_model=dict)

@@ -23,9 +23,9 @@ WORKER_ACTIONS = {
 def list_worker_logs(page: int = 1, page_size: int = 20, search: str = "", role: str = "") -> dict:
     """Read audit rows only. Discover the existing timestamp column without migrations."""
     if page < 1 or not 1 <= page_size <= 100:
-        raise HTTPException(status_code=422, detail="Invalid pagination")
+        raise HTTPException(status_code=422, detail="เลขหน้าหรือจำนวนรายการต่อหน้าไม่ถูกต้อง")
     if role and role not in {"owner", "ceo", "reception", "it_support", "housekeeper"}:
-        raise HTTPException(status_code=422, detail="Invalid role")
+        raise HTTPException(status_code=422, detail="บทบาทพนักงานไม่ถูกต้อง")
     client = get_db()
     try:
         sample = client.table("Worker_log").select("*").limit(1).execute().data or []
@@ -76,9 +76,9 @@ def log_worker_action(worker: dict, description: str) -> None:
     """
     actor_id = worker.get("line_user_id") or worker.get("id")
     if actor_id is None or not str(actor_id).strip():
-        raise ValueError("Worker identity is required")
+        raise ValueError("กรุณาระบุรหัสพนักงาน")
     if not worker.get("worker_name") or not worker.get("role"):
-        raise ValueError("Worker name and role are required")
+        raise ValueError("กรุณาระบุชื่อและบทบาทพนักงาน")
     get_db().table("Worker_log").insert({
         "description": description,
         "userId": str(actor_id),
@@ -103,30 +103,34 @@ def log_worker_event(
     Call after the business operation succeeds. This function only inserts a
     Worker_log row; it does not modify accounts, bookings, or room statuses.
     Event details use the existing description column. Never pass passwords or
-    tokens in reason. The role is the actor's role, not the target account's.
+    tokens in reason. Only reason_provided is recorded in the English audit
+    description; the original free-text reason stays on the reservation.
+    The role is the actor's role, not the target account's.
     If the audit insert fails, report it in the server log and return False;
     the caller's already completed operation must not appear to have failed.
     """
     if action not in WORKER_ACTIONS:
-        raise ValueError(f"Unsupported worker action: {action}")
+        raise ValueError("ไม่รองรับการดำเนินการของพนักงานที่ระบุ")
     reservation_actions = {"slip_approved", "slip_declined", "checkin", "checkout", "refund_completed"}
     if action in reservation_actions and (booking_id is None or not str(booking_id).strip()):
-        raise ValueError("booking_id is required for reservation actions")
+        raise ValueError("กรุณาระบุรหัสการจองสำหรับการดำเนินการกับรายการจอง")
     if action.startswith("account_") and (target_worker_id is None or not str(target_worker_id).strip()):
-        raise ValueError("target_worker_id is required for support actions")
+        raise ValueError("กรุณาระบุรหัสพนักงานที่ต้องการจัดการบัญชี")
     if action == "checkin" and not arrive_at:
-        raise ValueError("arrive_at is required for checkin")
+        raise ValueError("กรุณาระบุวันเวลาเข้าพักสำหรับการเช็คอิน")
     if action == "checkout" and not out_at:
-        raise ValueError("out_at is required for checkout")
+        raise ValueError("กรุณาระบุวันเวลาออกจากที่พักสำหรับการเช็คเอาต์")
 
     details = {}
     if action in {"profile_updated", "password_reset"}:
         details["worker_id"] = worker.get("id") or worker.get("line_user_id")
     for key, value in (("booking_id", booking_id), ("target_worker_id", target_worker_id),
                        ("room_number", room_number), ("arrive_at", arrive_at),
-                       ("out_at", out_at), ("reason", reason)):
+                       ("out_at", out_at)):
         if value is not None:
             details[key] = str(value)
+    if reason is not None:
+        details["reason_provided"] = "true" if reason.strip() else "false"
     fields = []
     for key, value in details.items():
         text = str(value).replace("\r", "\\r").replace("\n", "\\n")
