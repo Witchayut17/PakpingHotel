@@ -1058,6 +1058,12 @@ html {
   color: var(--gold);
 }
 
+a.dashboard-tab {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .dashboard-tab.is-active {
   border-bottom-color: var(--gold);
   background: var(--paper);

@@ -64,7 +64,7 @@ def _worker_for_token(token: str) -> dict:
     worker_id, _, credential = session
     try:
         rows = (get_db().table("Worker")
-                .select("id,worker_name,role,phone,password")
+                .select("id,line_user_id,worker_name,role,phone,password")
                 .eq("id", worker_id).limit(1).execute().data or [])
         if not rows or rows[0]["role"] not in ROLES:
             raise ValueError("ไม่พบพนักงานหรือบัญชีนี้ไม่พร้อมใช้งาน")

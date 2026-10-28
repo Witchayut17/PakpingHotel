@@ -19,6 +19,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5500",
     "https://candyce-corkier-meaningfully.ngrok-free.dev",
     "https://thinks-disclaimers-turns-coverage.trycloudflare.com",
+    "https://unheralded-knottiest-hadlee.ngrok-free.dev"
 ]
 
 @asynccontextmanager

@@ -12,7 +12,7 @@ from storge.db import get_db
 from datetime import datetime, timedelta, timezone, date, time
 from fastapi import HTTPException
 from utils.timestamps import parse_db_timestamp
-from utils.worker_log import get_worker, log_worker_action
+from utils.worker_log import get_worker, log_worker_action, log_worker_event
 from services.reply_flexroom import send_checkin_alert, send_worker_input
 import asyncio
 import logging
@@ -142,9 +142,9 @@ def request_refund(user_id: str, booking_id: str, refund_bank: str, refund_accou
     return result
 
 
-def complete_refund(booking_id: str) -> dict:
+def complete_refund(booking_id: str, *, actor: dict) -> dict:
     try:
-        return db.rpc("complete_refund_atomic", {"p_booking_id": booking_id}).execute().data
+        result = db.rpc("complete_refund_atomic", {"p_booking_id": booking_id}).execute().data
     except APIError as ex:
         if ex.code == "P0001" and "refund_completion_unavailable" in str(ex):
             raise HTTPException(status_code=409, detail="รายการนี้ยืนยันการคืนเงินไม่ได้แล้ว กรุณารีเฟรชรายการครับ") from ex
@@ -153,6 +153,8 @@ def complete_refund(booking_id: str) -> dict:
             raise HTTPException(status_code=503, detail="ระบบยืนยันคืนเงินยังไม่พร้อม กรุณาติดต่อที่พักครับ") from ex
         logger.exception("Unable to complete refund for booking %s", booking_id)
         raise HTTPException(status_code=503, detail="บันทึกการคืนเงินไม่สำเร็จ กรุณาลองอีกครั้งครับ") from ex
+    log_worker_event(actor, "refund_completed", booking_id=booking_id)
+    return result
 
 
 def make_qr_url(booking: dict) -> str:
@@ -618,7 +620,7 @@ def list_reservations() -> dict:
         })
     return {"records": records}
 
-def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed: bool = False) -> dict:
+def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed: bool = False, *, actor: dict) -> dict:
     if action not in ("checkin", "checkout"):
         raise HTTPException(status_code=422, detail="การดำเนินการกับห้องไม่ถูกต้องครับ")
     with booking_lock:
@@ -700,6 +702,7 @@ def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed
                     except Exception:
                         logger.exception("Unable to restore room %s after failed check-in", room_number)
                     raise
+                log_worker_event(actor, "checkin", booking_id=booking_id, room_number=room_number, arrive_at=arrive_at)
                 return {"booking_id": booking_id, "room_number": room_number, "room_status": "Busy",
                         "status": "inhouse", "arrive_at": arrive_at,
                         "amount": full_amount if method == "partial_deposit" else payment["amount"]}
@@ -729,6 +732,7 @@ def reservation_room_action(booking_id: str, action: str, balance_paid_confirmed
                 except Exception:
                     logger.exception("Unable to restore room %s after failed checkout", room_number)
                 raise
+            log_worker_event(actor, "checkout", booking_id=booking_id, room_number=room_number, out_at=out_at)
             return {"booking_id": booking_id, "room_number": room_number, "room_status": "Maintenance", "out_at": out_at}
         except HTTPException:
             raise
@@ -749,7 +753,7 @@ def get_booking_slip(booking_id: str) -> dict:
         logger.exception("Unable to load slip for booking %s", booking_id)
         raise HTTPException(status_code=503, detail="ไม่สามารถเปิดสลิปได้ในขณะนี้ครับ") from ex
 
-def update_user_status(booking_id: str, status: str, description: str | None = None) -> dict:
+def update_user_status(booking_id: str, status: str, description: str | None = None, *, actor: dict) -> dict:
     if status == "decline" and not (description or "").strip():
         raise HTTPException(status_code=422, detail="กรุณาระบุเหตุผลที่ปฏิเสธสลิปครับ")
     reason = description.strip() if status == "decline" else None
@@ -808,6 +812,8 @@ def update_user_status(booking_id: str, status: str, description: str | None = N
         raise HTTPException(status_code=503, detail="ไม่สามารถอัปเดตสถานะลูกค้าได้ครับ") from ex
     if not records:
         raise HTTPException(status_code=409, detail="รายการจองนี้ไม่ได้รอการตรวจสอบครับ")
+    event = "slip_approved" if status == "ready" else "slip_declined"
+    log_worker_event(actor, event, booking_id=booking_id, reason=reason)
     return {"booking_id": booking_id, "status": status, "description": reason,
             "expired_at": deadline.isoformat() if deadline else None}
 

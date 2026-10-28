@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://spoke-kevin-posters-cottages.trycloudflare.com';
+import { API_BASE_URL } from './config.js?v=1';
 const ROOMS_PER_PAGE = 5;
 const reservationMobile = window.matchMedia('(max-width: 900px)');
 const reservationsPerPage = () => reservationMobile.matches ? 2 : 5;
@@ -218,6 +218,7 @@ function showAuth() {
   roomRequestVersion++;
   sessionToken = '';
   account = null;
+  root.querySelector('#worker-log-link').hidden = true;
   supportUsers = [];
   sessionStorage.removeItem('pakping_dashboard_token');
   root.querySelector('.app-shell').hidden = true;
@@ -249,6 +250,7 @@ function showAuth() {
 
 function showDashboard(profile) {
   account = profile;
+  root.querySelector('#worker-log-link').hidden = !['ceo', 'owner'].includes(profile.role);
   root.querySelector('#login-screen').hidden = true;
   root.querySelector('.app-shell').hidden = false;
   root.querySelector('#account-name').textContent = `${profile.name} · ${roleLabels[profile.role] || profile.role}`;
@@ -731,12 +733,22 @@ function selectTab(name, updateUrl = false) {
 }
 
 function syncTabFromHash() {
+  if (window.location.hash === '#profile' && account) {
+    showProfile();
+    return;
+  }
   selectTab(tabFromHash());
   const target = document.getElementById(window.location.hash.slice(1));
   if (target && ((['analytics', 'rooms'].includes(target.id) && roleTabs[account?.role]?.includes('overview'))
     || (['pending', 'history'].includes(target.id) && roleTabs[account?.role]?.includes('reservation')))) {
     requestAnimationFrame(() => target.scrollIntoView());
   }
+}
+
+function showProfile() {
+  for (const name of ['overview', 'reservation', 'support']) root.querySelector(`#${name}-panel`).hidden = true;
+  root.querySelector('#profile-panel').hidden = false;
+  root.querySelector('#profile-error').hidden = true;
 }
 
 async function openSlip(bookingId) {
@@ -924,12 +936,10 @@ root.addEventListener('click', (event) => {
   }
   if (!account) return;
   if (event.target.closest('#profile-button')) {
-    for (const name of ['overview', 'reservation', 'support']) root.querySelector(`#${name}-panel`).hidden = true;
-    root.querySelector('#profile-panel').hidden = false;
-    root.querySelector('#profile-error').hidden = true;
+    showProfile();
     return;
   }
-  if (event.target.closest('#profile-close')) { selectTab(tabFromHash()); return; }
+  if (event.target.closest('#profile-close')) { selectTab(tabFromHash(), true); return; }
   if (event.target.closest('#support-refresh')) { loadSupportUsers(); return; }
   if (event.target.closest('#support-cancel')) { resetSupportForm(); return; }
   const supportButton = event.target.closest('[data-support-action]');

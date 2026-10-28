@@ -1,6 +1,6 @@
 import logging
 from starlette.concurrency import run_in_threadpool
-from fastapi import Body, Depends, Header, HTTPException, Query
+from fastapi import Body, Depends, Header, HTTPException, Query, Response
 from repository import api_repo
 from models.api_model import ReplyAvailablePayload, BookingRequest, SlipRequest, CancelBookingRequest, RefundRequest, CompleteRefundRequest, UpdateUserStatusRequest, ReservationRoomActionRequest, UserReply, WorkerData, ReplyMaintenancePayload, RoomStatus, DashboardLogin, DashboardUserCreate, DashboardUserUpdate, DashboardPasswordChange
 from storge.db import get_db
@@ -9,6 +9,7 @@ from repository.api_repo import create_booking, make_qr_url, worker_data_input, 
 from services.n8n_event import process_n8n_event
 from utils.dashboard_auth import ROLES, create_session, current_worker, revoke_session, verify_owner_master_password, verify_password
 from utils import dashboard_users
+from utils.worker_log import list_worker_logs
 
 db = get_db()
 logger = logging.getLogger(__name__)
@@ -37,6 +38,16 @@ async def dashboard_logout(authorization: str = Header(...), worker: dict = Depe
 
 async def dashboard_users_list(worker: dict = Depends(current_worker)) -> dict:
     return await run_in_threadpool(dashboard_users.list_users, worker)
+
+async def dashboard_worker_logs(
+    response: Response,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    search: str = Query(default="", max_length=200),
+    role: str = Query(default=""),
+) -> dict:
+    response.headers["Cache-Control"] = "no-store"
+    return await run_in_threadpool(list_worker_logs, page, page_size, search, role)
 
 async def dashboard_users_create(payload: DashboardUserCreate, worker: dict = Depends(current_worker)) -> dict:
     return await run_in_threadpool(dashboard_users.create_user, payload, worker)
@@ -133,8 +144,8 @@ async def request_refund(payload: RefundRequest):
     return await run_in_threadpool(api_repo.request_refund, payload.user_id, payload.booking_id,
                                    payload.refund_bank, payload.refund_account)
 
-async def complete_refund(payload: CompleteRefundRequest):
-    return await run_in_threadpool(api_repo.complete_refund, payload.booking_id)
+async def complete_refund(payload: CompleteRefundRequest, worker: dict = Depends(current_worker)):
+    return await run_in_threadpool(api_repo.complete_refund, payload.booking_id, actor=worker)
 
 async def cancel_approved_deposit(payload: CancelBookingRequest):
     if not payload.booking_id:
@@ -168,14 +179,14 @@ async def list_user_paid():
 async def list_reservations():
     return await run_in_threadpool(api_repo.list_reservations)
 
-async def reservation_room_action(payload: ReservationRoomActionRequest):
-    return await run_in_threadpool(api_repo.reservation_room_action, payload.booking_id, payload.action, payload.balance_paid_confirmed)
+async def reservation_room_action(payload: ReservationRoomActionRequest, worker: dict = Depends(current_worker)):
+    return await run_in_threadpool(api_repo.reservation_room_action, payload.booking_id, payload.action, payload.balance_paid_confirmed, actor=worker)
 
 async def get_booking_slip(booking_id: str = Query(min_length=1)):
     return await run_in_threadpool(api_repo.get_booking_slip, booking_id)
 
-async def update_user_status(payload: UpdateUserStatusRequest):
-    return await run_in_threadpool(api_repo.update_user_status, payload.booking_id, payload.status, payload.description)
+async def update_user_status(payload: UpdateUserStatusRequest, worker: dict = Depends(current_worker)):
+    return await run_in_threadpool(api_repo.update_user_status, payload.booking_id, payload.status, payload.description, actor=worker)
 
 async def reply_approval(payload: UserReply):
     return await send_approval_message(payload.userId, payload.booking_id, payload.status, payload.description)

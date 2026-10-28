@@ -2,6 +2,7 @@ from fastapi import HTTPException
 
 from storge.db import get_db
 from utils.dashboard_auth import ROLES, hash_password, verify_password
+from utils.worker_log import log_worker_event
 
 
 def public_worker(row: dict) -> dict:
@@ -48,6 +49,7 @@ def create_user(payload, actor: dict) -> dict:
     }).execute().data or [])
     if not rows:
         raise HTTPException(status_code=500, detail="สร้างบัญชีไม่สำเร็จ")
+    log_worker_event(actor, "account_created", target_worker_id=str(rows[0]["id"]))
     return public_worker(rows[0])
 
 
@@ -63,6 +65,10 @@ def update_user(worker_id: str, payload, actor: dict) -> dict:
             .eq("id", worker_id).execute().data or [])
     if not rows:
         raise HTTPException(status_code=404, detail="ไม่พบบัญชีพนักงาน")
+    if str(worker_id) == str(actor["id"]):
+        log_worker_event(actor, "profile_updated")
+    else:
+        log_worker_event(actor, "account_updated", target_worker_id=worker_id)
     return public_worker(rows[0])
 
 
@@ -70,8 +76,12 @@ def reset_user_password(worker_id: str, actor: dict) -> dict:
     target = editable_worker(worker_id, actor)
     if not target.get("phone") or len(target["phone"]) != 10 or not target["phone"].isdigit():
         raise HTTPException(status_code=400, detail="กรุณากำหนดเบอร์โทร 10 หลักก่อนรีเซ็ตรหัสผ่าน")
-    (get_db().table("Worker").update({"password": hash_password(target["phone"])})
-     .eq("id", worker_id).execute())
+    rows = (get_db().table("Worker").update({"password": hash_password(target["phone"])})
+            .eq("id", worker_id).execute().data or [])
+    if not rows:
+        raise HTTPException(status_code=404, detail="ไม่พบบัญชีพนักงาน")
+    event = "password_reset" if str(worker_id) == str(actor["id"]) else "account_password_reset"
+    log_worker_event(actor, event, target_worker_id=worker_id)
     return {"status": "Success"}
 
 
@@ -79,13 +89,19 @@ def delete_user(worker_id: str, actor: dict) -> dict:
     target = editable_worker(worker_id, actor)
     if str(target["id"]) == str(actor["id"]):
         raise HTTPException(status_code=400, detail="ไม่สามารถลบบัญชีของตนเอง")
-    (get_db().table("Worker").delete().eq("id", worker_id).execute())
+    rows = get_db().table("Worker").delete().eq("id", worker_id).execute().data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="ไม่พบบัญชีพนักงาน")
+    log_worker_event(actor, "account_deleted", target_worker_id=worker_id)
     return {"status": "Success"}
 
 
 def change_password(payload, actor: dict) -> dict:
     if not verify_password(payload.current_password, actor.get("password")):
         raise HTTPException(status_code=400, detail="รหัสผ่านปัจจุบันไม่ถูกต้อง")
-    (get_db().table("Worker").update({"password": hash_password(payload.new_password)})
-     .eq("id", actor["id"]).execute())
+    rows = (get_db().table("Worker").update({"password": hash_password(payload.new_password)})
+            .eq("id", actor["id"]).execute().data or [])
+    if not rows:
+        raise HTTPException(status_code=404, detail="ไม่พบบัญชีพนักงาน")
+    log_worker_event(actor, "password_reset")
     return {"status": "Success"}
