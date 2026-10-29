@@ -1,6 +1,6 @@
 import { createWorkerLog } from './worker-log.js?v=7';
 
-export const API_BASE_URL = 'https://spirits-health-codes-equipped.trycloudflare.com';
+export const API_BASE_URL = 'https://evaluations-closer-children-newbie.trycloudflare.com';
 
 function initializeDashboard() {
   const reservationMobile = window.matchMedia('(max-width: 900px)');
@@ -694,7 +694,7 @@ const roleTabs = {
     state.error = '';
     render();
     try {
-      const result = await request(account.role === 'CEO' ? '/dashboard/overview_data' : '/list_reservations');
+      const result = await request(account.role === 'ceo' ? '/dashboard/overview_data' : '/list_reservations');
       if (token !== sessionToken) return;
       const records = result.records || [];
       state.reviews = records;
