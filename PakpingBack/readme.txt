@@ -41,7 +41,7 @@ Add Role
 
 
 Fix bug
-- if user not using line?
+- if user not using line? 
 - check 2 user booking same date ผ่าน
 - use redirect link in rich menu (visit site) loey ผ่าน
 - check if sent image what happen ผ่าน

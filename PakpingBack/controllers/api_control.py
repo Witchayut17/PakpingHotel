@@ -39,13 +39,7 @@ async def dashboard_logout(authorization: str = Header(...), worker: dict = Depe
 async def dashboard_users_list(worker: dict = Depends(current_worker)) -> dict:
     return await run_in_threadpool(dashboard_users.list_users, worker)
 
-async def dashboard_worker_logs(
-    response: Response,
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
-    search: str = Query(default="", max_length=200),
-    role: str = Query(default=""),
-) -> dict:
+async def dashboard_worker_logs(response: Response, page: int = Query(default=1, ge=1), page_size: int = Query(default=20, ge=1, le=100), search: str = Query(default="", max_length=200), role: str = Query(default=""),) -> dict:
     response.headers["Cache-Control"] = "no-store"
     return await run_in_threadpool(list_worker_logs, page, page_size, search, role)
 

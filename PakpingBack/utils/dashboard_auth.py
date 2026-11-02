@@ -84,4 +84,3 @@ def require_roles(*roles: str, allow_owner: bool = True):
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ใช้งานส่วนนี้")
         return worker
     return check
-

@@ -343,15 +343,7 @@ async def send_checkin_alerts():
         return
 
     def pending_alerts():
-        return (
-            db.table("Customers")
-            .select("line_user_id,booking_id")
-            .eq("check_in", now.date().isoformat())
-            .eq("alert_sent", False)
-            .eq("status", "ready")
-            .is_("arrive_at", "null")
-            .execute().data or []
-        )
+        return (db.table("Customers").select("line_user_id,booking_id").eq("check_in", now.date().isoformat()).eq("alert_sent", False).eq("status", "ready").is_("arrive_at", "null").execute().data or [])
 
     rows = await asyncio.to_thread(pending_alerts)
     for r in rows:

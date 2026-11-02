@@ -290,7 +290,7 @@ async def send_worker_input(userId:str):
             headers={"Authorization": f"Bearer {line_channel_access_token_housekeeper}"},
             json={
                 "to": userId,
-                "messages": [{"type": "text", "text": "แจ้งเตือน - ไม่มีข้อมูลคุณในระบบกรุณากรอก\nชื่อ - นามสกุล\n(ตัวอย่าง นางย้อม ใจดี)"}],
+                "messages": [{"type": "text", "text": "แจ้งเตือน - ไม่มีข้อมูลคุณในระบบกรุณากรอก\nชื่อ - นามสกุล\n(ตัวอย่าง นางย้อม สง่างาม)"}],
             },
         )
         response.raise_for_status()
